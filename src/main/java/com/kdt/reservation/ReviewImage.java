@@ -1,0 +1,22 @@
+package com.kdt.reservation;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Table(name = "review_image")
+@NoArgsConstructor
+@Getter
+@Setter
+public class ReviewImage {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "review_id",nullable = false)
+    private Review review;
+    @Column(columnDefinition = "text",nullable = false)
+    private String url;
+}
