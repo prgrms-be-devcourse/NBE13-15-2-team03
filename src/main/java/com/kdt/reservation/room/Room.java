@@ -1,5 +1,6 @@
-package com.kdt.reservation;
+package com.kdt.reservation.room;
 
+import com.kdt.reservation.accommodation.Accommodation;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,30 +12,35 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "review")
+@Table(name = "room")
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
-public class Review {
+public class Room {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reservation_id",unique = true,nullable = false)
-    private Reservation reservation;
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id",nullable = false)
-    private Users user;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "accommodation_id",nullable = false)
     private Accommodation accommodation;
+    @Column(length = 50,nullable = false)
+    private String name;
+    @Column(length = 255)
+    private String description;
     @Column(nullable = false)
-    private int rating;
-    @Column(length = 100)
-    private String title;
-    @Column(columnDefinition = "text")
-    private String body;
+    private int price;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Grade grade;
+    @Column(nullable = false)
+    private int standard_capacity;
+    @Column(nullable = false)
+    private int max_capacity;
+    @Column(nullable = false)
+    private int extra_person_fee=0;
+    @Column(name = "is_available",nullable = false)
+    private boolean available=true;
     @CreatedDate
     @Column(name = "created_at",nullable = false)
     private LocalDateTime created_at;
@@ -43,4 +49,8 @@ public class Review {
     private LocalDateTime updated_at;
     @Column(name = "deleted_at")
     private LocalDateTime deleted_at;
+
+
+
+
 }

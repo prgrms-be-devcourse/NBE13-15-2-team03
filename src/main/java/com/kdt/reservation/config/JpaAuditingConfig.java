@@ -1,4 +1,4 @@
-package com.kdt.reservation;
+package com.kdt.reservation.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;

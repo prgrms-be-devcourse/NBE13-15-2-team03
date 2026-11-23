@@ -1,4 +1,4 @@
-package com.kdt.reservation;
+package com.kdt.reservation.room;
 
 import jakarta.persistence.*;
 import lombok.Getter;

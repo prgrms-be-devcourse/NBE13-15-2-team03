@@ -1,7 +1,6 @@
-package com.kdt.reservation;
+package com.kdt.reservation.user;
 
 public enum role {
     GUEST,
     HOST,
-    ADMIN
 }

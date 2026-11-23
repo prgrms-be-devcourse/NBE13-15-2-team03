@@ -1,5 +1,6 @@
-package com.kdt.reservation;
+package com.kdt.reservation.accommodation;
 
+import com.kdt.reservation.user.Users;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

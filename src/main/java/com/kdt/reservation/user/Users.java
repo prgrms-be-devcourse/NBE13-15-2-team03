@@ -1,4 +1,4 @@
-package com.kdt.reservation;
+package com.kdt.reservation.user;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;

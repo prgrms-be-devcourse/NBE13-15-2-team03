@@ -1,4 +1,4 @@
-package com.kdt.reservation;
+package com.kdt.reservation.accommodation;
 
 public enum Type {
     HOTEL,

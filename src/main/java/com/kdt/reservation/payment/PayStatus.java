@@ -1,4 +1,4 @@
-package com.kdt.reservation;
+package com.kdt.reservation.payment;
 
 public enum PayStatus {
     READY,

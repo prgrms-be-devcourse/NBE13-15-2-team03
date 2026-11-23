@@ -1,4 +1,4 @@
-package com.kdt.reservation;
+package com.kdt.reservation.user;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -10,27 +10,25 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "point_history")
+@Table(name = "social_user")
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
-public class PointHistory {
+public class SocialUser {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id",nullable = false)
     private Users user;
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "reservation_id",nullable = true)
-    private Reservation reservation;
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type",nullable = false)
-    private PointType pointType;
-    @Column(nullable = false)
-    private int amount;
+    @Column(length = 20,nullable = false)
+    //KAKAO, GOOGLE
+    private String provider;
+    @Column(unique = true,length = 255,nullable = false)
+    private String provider_user_id;
     @CreatedDate
     @Column(name = "created_at",nullable = false)
     private LocalDateTime created_at;
+
 }
