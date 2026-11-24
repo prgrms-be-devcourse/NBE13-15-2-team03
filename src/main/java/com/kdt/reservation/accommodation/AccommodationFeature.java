@@ -14,12 +14,14 @@ import lombok.NoArgsConstructor;
 // "이 feature 를 가진 숙소 목록"(필터) 조회용 역방향 인덱스
 @Table(name = "accommodation_feature",
         indexes = @Index(name = "idx_feature_accommodation",
+                //역방향 인덱스
                 columnList = "feature_id, accommodation_id"))
 @Getter
 @NoArgsConstructor
 public class AccommodationFeature {
 
     // 복합 기본키 (숙소 id + feature id 묶음)
+    //정방향 인덱스 = 복합 pk
     @EmbeddedId
     private AccommodationFeatureId id;
 
