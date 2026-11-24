@@ -38,3 +38,6 @@ out/
 
 ### Environment ###
 .env
+
+### 비밀 값 ###
+application-secret.yml

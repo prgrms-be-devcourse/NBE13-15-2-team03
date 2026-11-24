@@ -16,6 +16,8 @@ spring:
         format_sql: true
     open-in-view: false
 
-jwt:
-  access-expiration-ms: 1800000       # 30분
-  refresh-expiration-ms: 1209600000   # 14일
+kdt:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-seconds: 1800       # 30분
+    refresh-seconds: 1209600   # 14일
