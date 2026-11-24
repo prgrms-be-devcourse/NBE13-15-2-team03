@@ -10,7 +10,11 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "social_user")
+@Table(name = "social_user",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_social_user_provider",
+                columnNames = {"provider","provider_user_id"})
+)
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
 @Getter
@@ -23,9 +27,8 @@ public class SocialUser {
     @JoinColumn(name = "user_id",nullable = false)
     private Users user;
     @Column(length = 20,nullable = false)
-    //KAKAO, GOOGLE
     private String provider;
-    @Column(unique = true,length = 255,nullable = false)
+    @Column(length = 255,nullable = false)
     private String provider_user_id;
     @CreatedDate
     @Column(name = "created_at",nullable = false)
