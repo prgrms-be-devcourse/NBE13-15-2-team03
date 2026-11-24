@@ -63,8 +63,9 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_BODY))
-                .andExpect(status().isCreated())               // 201
-                .andExpect(jsonPath("$.userId").value(1));     // 응답 JSON 의 userId 가 1
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value(201))        // 공통 포맷의 status
+                .andExpect(jsonPath("$.data.userId").value(1));    // data 안의 userId
     }
 
     @Test
