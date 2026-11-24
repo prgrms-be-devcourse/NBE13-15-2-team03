@@ -1,24 +1,21 @@
 # 숙소 예약 서비스 API 명세
 
-- 작성일: 2026-11-23 (최종 수정 2026-11-24, 수정 ERD 반영)
-- 기준 문서: `feature-api-list.md`, 11/24 수정 ERD (테이블 15개: USERS, SOCIAL_USER, ACCOMMODATION, ACCOMMODATION_IMAGE, ROOM, ROOM_IMAGE, FEATURE, ACCOMMODATION_FEATURE, ROOM_FEATURE, RESERVATION, PAYMENT, POINT, POINT_HISTORY, REVIEW, REVIEW_IMAGE)
+- 작성일: 2026-11-23 (최종 수정 2026-11-24, 확정 ERD와 팀 결정 반영)
+- 기준 문서: `docs/erd.md`, `db/01_schema.sql` (테이블 15개: USERS, SOCIAL_USER, ACCOMMODATION, ACCOMMODATION_IMAGE, ROOM, ROOM_IMAGE, FEATURE, ACCOMMODATION_FEATURE, ROOM_FEATURE, RESERVATION, PAYMENT, POINT, POINT_HISTORY, REVIEW, REVIEW_IMAGE)
 - 범위: 엔드포인트 36개 (JSON API 34개, Spring Security가 처리하는 소셜 로그인 경로 2개)
 - 명세 작성: 김진형
 - 담당 표기: A 임재상(인증·회원·소셜 로그인·보안 설정), B 김진형(숙소·객실), C 천승혁(예약·결제·예약 일정 조회), D 최건(포인트·리뷰·이미지 업로드·공통 모듈)
 
 ## 0. 가정한 것 (팀 확정 필요)
 
-아래 항목은 아직 정해지지 않았거나 확정 ERD와 맞지 않아 임의로 정했다. 확정되면 해당 절을 고친다.
+아래 항목은 아직 정해지지 않아 임의로 정했다. 확정되면 0-1로 옮기고 해당 절을 고친다. 번호는 처음 매긴 그대로 두며, 빠진 번호는 0-1에 있다.
 
 | # | 항목 | 이 문서의 가정 | 관련 절 |
 |---|---|---|---|
-| 1 | 공통 응답·에러·페이지 포맷 | 1.1~1.3의 구조 | 전체 |
 | 2 | 토큰 전달과 만료 | 응답 본문으로 전달. Access 30분, Refresh 14일 | 3.2, 3.3 |
-| 3 | Refresh 토큰 저장 | 서버에 저장(`feature-api-list.md` 4.1의 A안). 사용자당 1개, 재발급 때 교체 | 3.3, 3.4 |
-| 4 | 소셜 전용 유저의 컬럼 | 확정 ERD는 `login_id`, `password`, `phone`, `birth_date`가 모두 NN이다. 소셜 가입에서는 이 값을 받을 수 없어 nullable로 바꾸는 것을 전제로 썼다. 역할은 GUEST 고정 | 4, 5 |
 | 5 | 소셜 로그인 콜백 응답 | 리다이렉트 없이 JSON 본문으로 토큰 전달 | 4.2 |
 | 6 | 가입 입력 규칙 | 아이디 영문 소문자·숫자 4~20자, 비밀번호 8~64자(영문과 숫자 포함) | 3.1 |
-| 7 | enum 값 | 확정됨(11/23 팀 합의). 더 이상 가정이 아니며 값은 1.6에 있다 | 1.6 |
+| 7 | enum 값 | `accommodation.type`은 확정(11/23 팀 합의). `room.grade`, `payment.method`는 ERD에 임시로 표기돼 있다. 값은 1.6에 있다 | 1.6 |
 | 8 | `region` 값 | 시도 단위 고정 값 17개 (`서울`, `부산`, `제주` 등) | 6, 7 |
 | 9 | `address_detail` 필수 여부 | ERD대로 필수 | 7.2 |
 | 10 | 숙소 목록 정렬 | `LATEST`(기본), `PRICE_ASC`, `PRICE_DESC` | 6.1 |
@@ -27,14 +24,24 @@
 | 13 | 예약 취소 가능 시점 | 체크인 전날까지. 체크인 당일부터는 불가 | 9.4 |
 | 14 | 포인트 규칙 | 1P = 1원, 1P 단위 사용. 결제 시 적립, 예약 취소 시 사용분 환불. `POINT_HISTORY.amount`는 항상 양수로 저장. **적립률은 미정** | 10, 11 |
 | 15 | 결제의 사용·적립 포인트 | `PAYMENT`에 포인트 컬럼이 없다. 응답의 `usedPoint`, `earnedPoint`는 `POINT_HISTORY`에서 `reservation_id`와 `type`으로 찾는다. `PAYMENT.used_point` 컬럼을 추가하면 조회가 단순해진다 | 9.3, 10 |
-| 16 | 리뷰 재작성 | 삭제한 리뷰의 예약에는 다시 쓸 수 없다. 이미지는 리뷰당 최대 5장 | 12 |
-| 17 | 이미지 업로드 제한 | jpg, png, webp. 파일당 5MB 이하. 저장 위치는 미정 | 12.6 |
-| 18 | 회원 탈퇴 | 체크아웃 전인 예약이 있으면 거절. 탈퇴한 아이디·전화번호의 재사용 여부는 미정 | 5.4 |
-| 19 | `birth_date` 유지 | ERD에 "안 쓰면 삭제" 메모가 있다. 유지하는 것으로 썼다. 삭제하면 3.1, 5.1, 5.2의 `birthDate`와 4.2의 `profileCompleted` 조건에서 뺀다 | 3.1, 4.2, 5 |
 | 20 | 취소 시 적립 포인트 | 회수하지 않는다. ERD의 내역 유형이 `EARN`, `USE`, `REFUND`뿐이라 회수를 기록할 수 없다. **이대로면 결제와 취소를 반복해 포인트를 쌓을 수 있다.** 회수 유형을 추가하거나 적립 시점을 체크아웃 이후로 옮겨야 한다 | 9.4, 11.2 |
-| 21 | 편의시설 데이터와 조회 API | `FEATURE` 행은 초기 데이터 SQL로 넣고, API로는 만들거나 고치지 않는다. 선택할 수 있는 목록을 주는 `GET /api/features`(6.4)는 `feature-api-list.md`에 없는 추가 제안이다 | 6.4 |
-| 22 | 숙소·객실 이미지 | 각각 최대 10장. ERD에 순서나 대표 이미지 컬럼이 없어, 가장 먼저 등록된 이미지를 대표(`thumbnailUrl`)로 쓴다 | 6, 7, 8 |
-| 23 | 편의시설 필터 범위 | 숙소 목록은 숙소 편의시설로만 거른다. 객실 편의시설로 거르는 조건은 넣지 않았다 | 6.1 |
+
+## 0-1. 확정한 결정
+
+2026-11-24 ERD 확정에 맞춰 정한 것이다. 각 담당자는 구현 전에 자기 담당 행을 확인한다. `원 #`은 0절에서 쓰던 번호다.
+
+| 원 # | 항목 | 결정 | 관련 절 | 담당 |
+|---|---|---|---|---|
+| 1 | 공통 응답 포맷 | 성공 응답은 `status`와 `data`만 담는다. `message`는 에러 응답에만 둔다. 페이지 포맷은 1.3 그대로 | 1.1~1.3, 전체 | D |
+| 3 | Refresh 토큰 저장 | 서버 인메모리에 저장하며 테이블은 없다. 사용자당 1개, 재발급 때 교체. 서버 인스턴스를 늘릴 때 Redis로 옮긴다 | 3.3, 3.4 | A |
+| 4 | 소셜 전용 유저의 컬럼 | `login_id`, `password`, `phone`, `birth_date`는 모두 NOT NULL을 유지하고, 소셜 가입 시 서버가 임시 값을 넣는다. `login_id` = `{provider}_{providerUserId}` (예: `kakao_123456`), `password` = 랜덤 문자열의 BCrypt 해시, `phone` = 유니크한 임시 값(형식은 A가 구현에서 정함), `birth_date` = `1900-01-01`. 역할은 GUEST 고정. **소셜 전용 계정 판단 기준**: `SOCIAL_USER` 연결이 있고 `login_id`가 서버 생성 형식인 계정. `phone`, `birth_date`가 임시 값이면 응답에서는 null로 돌려주고 5.2로 채우게 한다 | 4, 5 | A |
+| 16 | 리뷰 재작성 | 삭제한 리뷰의 예약에는 다시 쓸 수 없다(ERD 설계 메모). 이미지는 리뷰당 최대 5장 | 12 | D |
+| 17 | 이미지 저장 | 저장 위치는 Cloud Storage(S3). 업로드 기능을 구현하기 전에는 랜덤 이미지 URL을 `imageUrls`에 넣어 쓴다. jpg, png, webp. 파일당 5MB 이하 | 12.6 | D |
+| 18 | 탈퇴한 아이디·전화번호 | 재사용하지 않는다. `login_id`, `phone`이 UK이고 탈퇴가 soft delete라 현 스키마로는 재사용할 수 없다. 체크아웃 전인 예약이 있으면 탈퇴 거절 | 5.4 | A |
+| 19 | `birth_date` | 유지한다(ERD에 NOT NULL) | 3.1, 4.2, 5 | A |
+| 21 | 편의시설 데이터 | `FEATURE` 행은 `db/01_schema.sql`로 관리하고 API로는 만들거나 고치지 않는다. 선택할 수 있는 목록을 주는 `GET /api/features`(6.4)는 1차 목록에 없던 추가 API다 | 6.4 | B |
+| 22 | 숙소·객실 이미지 | 각각 최대 10장. ERD에 순서나 대표 컬럼이 없으므로 id 오름차순 첫 번째 이미지를 대표(`thumbnailUrl`)로 쓴다. 수정은 목록 전체 교체(12.4와 같은 방식) | 6, 7, 8 | B |
+| 23 | 편의시설 필터와 식별자 | 요청과 필터는 `featureId`(숫자)로 받는다. 숙소 목록은 숙소 편의시설로만 거르고, 여러 개를 보내면 모두 가진 숙소만(AND) 포함한다. 객실용 id를 보내면 400 `INVALID_FEATURE`. 수정은 목록 전체 교체 | 6.1, 7, 8 | B |
 
 ## 1. 공통
 
@@ -59,7 +66,6 @@
 ```json
 {
   "status": 200,
-  "message": "숙소를 조회했습니다.",
   "data": { }
 }
 ```
@@ -131,14 +137,14 @@
 | 인증 | 409 | `DUPLICATE_LOGIN_ID` | 이미 사용 중인 아이디 |
 | 회원 | 409 | `DUPLICATE_PHONE` | 이미 사용 중인 전화번호 |
 | 회원 | 400 | `PASSWORD_MISMATCH` | 현재 비밀번호 불일치 |
-| 회원 | 400 | `PASSWORD_NOT_SET` | 비밀번호가 없는 소셜 전용 계정 |
+| 회원 | 400 | `PASSWORD_NOT_SET` | 비밀번호를 직접 설정한 적 없는 소셜 전용 계정. 판단 기준은 0-1의 4번 |
 | 회원 | 409 | `USER_HAS_ACTIVE_RESERVATION` | 체크아웃 전인 예약이 남아 있어 탈퇴 불가 |
 | 숙소 | 400 | `INVALID_DATE_RANGE` | 날짜가 하나만 옴, 시작이 끝과 같거나 늦음, 과거 날짜 |
 | 숙소 | 400 | `INVALID_PRICE_RANGE` | `minPrice`가 `maxPrice`보다 큼 |
 | 숙소 | 403 | `NOT_ACCOMMODATION_OWNER` | 다른 HOST의 숙소·객실에 접근 |
 | 숙소 | 404 | `ACCOMMODATION_NOT_FOUND` | 숙소가 없거나 삭제됨 |
 | 숙소 | 409 | `ACCOMMODATION_HAS_ACTIVE_RESERVATION` | 체크아웃 전인 예약이 있는 숙소를 삭제하려 함 |
-| 숙소·객실 | 400 | `INVALID_FEATURE` | 없는 편의시설 코드이거나, 대상이 맞지 않음(숙소에 객실용 코드, 객실에 숙소용 코드) |
+| 숙소·객실 | 400 | `INVALID_FEATURE` | 없는 편의시설 ID이거나, 대상이 맞지 않음(숙소에 객실용 ID, 객실에 숙소용 ID) |
 | 객실 | 400 | `INVALID_CAPACITY` | `maxCapacity`가 `standardCapacity`보다 작음 |
 | 객실 | 404 | `ROOM_NOT_FOUND` | 객실이 없거나 삭제됨 |
 | 객실 | 409 | `ROOM_HAS_ACTIVE_RESERVATION` | 체크아웃 전인 예약이 있는 객실을 삭제하려 함 |
@@ -256,7 +262,6 @@
 ```json
 {
   "status": 201,
-  "message": "회원가입이 완료되었습니다.",
   "data": { "userId": 7 }
 }
 ```
@@ -291,7 +296,6 @@
 ```json
 {
   "status": 200,
-  "message": "로그인했습니다.",
   "data": {
     "tokenType": "Bearer",
     "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
@@ -323,7 +327,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "토큰을 재발급했습니다.",
   "data": {
     "tokenType": "Bearer",
     "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
@@ -361,7 +364,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 
 제공자가 로그인을 마친 사용자를 이 경로로 돌려보낸다. 클라이언트가 직접 호출하지 않는다.
 
-- 처음 로그인한 사용자면 `USERS`와 `SOCIAL_USER` 행을 만든다. 역할은 GUEST, 닉네임은 제공자가 준 값, `loginId`·`phone`·`birthDate`는 null이다.
+- 처음 로그인한 사용자면 `USERS`와 `SOCIAL_USER` 행을 만든다. 역할은 GUEST, 닉네임은 제공자가 준 값이다. `login_id`, `password`, `phone`, `birth_date`는 NOT NULL이므로 0-1의 4번에 정한 임시 값으로 채운다.
 - 이미 연결된 사용자면 그 계정으로 로그인한다.
 
 **응답 200** `data`: 3.2와 같은 구조에 아래 필드를 더한다.
@@ -369,7 +372,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | `isNewUser` | boolean | 이번 로그인으로 계정이 만들어졌으면 true |
-| `profileCompleted` | boolean | `phone`과 `birthDate`가 모두 채워져 있으면 true. false면 5.2로 채운다 |
+| `profileCompleted` | boolean | `phone`과 `birthDate`가 모두 임시 값이 아니면 true. false면 5.2로 채운다 |
 
 **에러**: 제공자 인증 실패 또는 사용자의 동의 취소 시 401 `UNAUTHORIZED`
 
@@ -384,11 +387,11 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 | 필드 | 타입 | 설명 |
 |---|---|---|
 | `userId` | long | 사용자 ID |
-| `loginId` | string, null | 아이디. 소셜 전용 계정은 null |
+| `loginId` | string | 아이디. 소셜 전용 계정은 서버가 만든 값(예: `kakao_123456`) |
 | `name` | string | 이름 |
 | `nickname` | string | 닉네임 |
-| `phone` | string, null | 전화번호 |
-| `birthDate` | date, null | 생년월일 |
+| `phone` | string, null | 전화번호. 소셜 가입 후 아직 입력하지 않았으면(임시 값) null |
+| `birthDate` | date, null | 생년월일. 소셜 가입 후 아직 입력하지 않았으면(임시 값) null |
 | `role` | enum | `GUEST`, `HOST`, `ADMIN` |
 | `socialProviders` | array | 연결된 소셜 계정. 예: `["KAKAO"]`. 없으면 빈 배열 |
 | `createdAt` | datetime | 가입 일시 |
@@ -396,7 +399,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "내 정보를 조회했습니다.",
   "data": {
     "userId": 7,
     "loginId": "traveler01",
@@ -417,7 +419,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 
 `PATCH /api/users/me` · 권한: 로그인
 
-보낸 필드만 바꾼다. 아이디와 역할은 바꿀 수 없다.
+보낸 필드만 바꾼다. 아이디와 역할은 바꿀 수 없다. 소셜 가입 계정은 여기서 `phone`과 `birthDate`를 보내 임시 값을 실제 값으로 덮어쓴다.
 
 **요청 본문** (모두 선택, 1개 이상 필요)
 
@@ -443,7 +445,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 | `currentPassword` | string | 필수 | 현재 비밀번호와 일치 |
 | `newPassword` | string | 필수 | 8~64자. 영문과 숫자를 모두 포함 |
 
-변경에 성공하면 저장된 Refresh 토큰을 삭제해 다시 로그인하게 한다.
+변경에 성공하면 저장된 Refresh 토큰을 삭제해 다시 로그인하게 한다. 소셜 전용 계정(0-1의 4번 기준)은 비밀번호가 임시 값이므로 400 `PASSWORD_NOT_SET`으로 거절한다.
 
 **응답 200**: `data`는 null.
 
@@ -475,7 +477,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 |---|---|---|---|---|
 | `region` | string | 선택 | - | 지역. 정확히 일치하는 숙소만 |
 | `type` | enum | 선택 | - | 숙소 유형 |
-| `features` | string | 선택 | - | 숙소 편의시설 코드. 여러 개는 쉼표로 잇는다(`features=PARKING,POOL`) |
+| `featureIds` | long 목록 | 선택 | - | 숙소 편의시설 ID(6.4). 여러 개는 쉼표로 잇는다(`featureIds=1,2`) |
 | `minPrice` | int | 선택 | - | 1박 최저 가격. 0 이상 |
 | `maxPrice` | int | 선택 | - | 1박 최고 가격. `minPrice` 이상 |
 | `guestCount` | int | 선택 | - | 투숙 인원. 1 이상 |
@@ -494,7 +496,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 - 날짜: 그 객실에 PENDING 또는 CONFIRMED 예약 중 `check_in < checkOut AND check_out > checkIn`인 것이 없어야 한다.
 - 객실 조건을 하나도 보내지 않으면 객실이 없는 숙소도 결과에 포함한다.
 - 가격 정렬은 숙소의 `minPrice` 기준이다.
-- 편의시설 조건은 숙소 기준이고 객실 조건과 별개로 적용한다. 보낸 코드를 **모두** 가진 숙소만 포함한다. 없는 코드나 객실용 코드를 보내면 400 `INVALID_FEATURE`다.
+- 편의시설 조건은 숙소 기준이고 객실 조건과 별개로 적용한다. 보낸 ID를 **모두** 가진 숙소만 포함한다(AND). 없는 ID나 객실용 ID를 보내면 400 `INVALID_FEATURE`다. 객실 편의시설로는 거르지 않는다.
 
 날짜 필터는 `RESERVATION` 테이블을 읽어야 하므로 예약 담당(C)의 엔티티가 나온 뒤 구현한다. 나머지 필터를 먼저 완성한다.
 
@@ -507,7 +509,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 | `type` | enum | 숙소 유형 |
 | `region` | string | 지역 |
 | `address` | string | 주소 (상세 주소 제외) |
-| `thumbnailUrl` | string, null | 대표 이미지 URL. 이미지가 없으면 null |
+| `thumbnailUrl` | string, null | 대표 이미지 URL(id 오름차순 첫 이미지). 이미지가 없으면 null |
 | `minPrice` | int, null | 판매 중인 객실의 최저 1박 가격. 객실이 없으면 null |
 | `averageRating` | double | 평균 평점. 소수 첫째 자리까지. 리뷰가 없으면 0.0 |
 | `reviewCount` | int | 리뷰 수 |
@@ -515,7 +517,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "숙소 목록을 조회했습니다.",
   "data": {
     "content": [
       {
@@ -566,8 +567,9 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 | `region` | string | 지역 |
 | `address` | string | 주소 |
 | `addressDetail` | string | 상세 주소 |
-| `imageUrls` | array | 숙소 이미지 URL 목록. 등록한 순서. 없으면 빈 배열 |
+| `imageUrls` | array | 숙소 이미지 URL 목록. id 오름차순이며 첫 번째가 대표 이미지. 없으면 빈 배열 |
 | `features[]` | array | 숙소 편의시설 목록. 없으면 빈 배열 |
+| `features[].featureId` | long | 편의시설 ID |
 | `features[].code` | string | 편의시설 코드 |
 | `features[].name` | string | 화면에 보여 줄 이름 |
 | `features[].category` | enum | `AMENITY`, `FACILITY`, `SERVICE` |
@@ -583,14 +585,13 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 | `rooms[].maxCapacity` | int | 최대 인원 |
 | `rooms[].extraPersonFee` | int | 기준 인원 초과 시 1인당 추가 요금 |
 | `rooms[].isAvailable` | boolean | 판매 여부. false면 예약할 수 없다 |
-| `rooms[].imageUrls` | array | 객실 이미지 URL 목록. 없으면 빈 배열 |
+| `rooms[].imageUrls` | array | 객실 이미지 URL 목록. id 오름차순. 없으면 빈 배열 |
 | `rooms[].features[]` | array | 객실 편의시설 목록. 필드는 `features[]`와 같다 |
 | `createdAt` | datetime | 등록 일시 |
 
 ```json
 {
   "status": 200,
-  "message": "숙소를 조회했습니다.",
   "data": {
     "accommodationId": 12,
     "host": { "hostId": 3, "nickname": "바다사장" },
@@ -602,8 +603,8 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
     "addressDetail": "본관",
     "imageUrls": ["/images/2026/11/a1b2c3.jpg", "/images/2026/11/d4e5f6.jpg"],
     "features": [
-      { "code": "PARKING", "name": "주차장", "category": "FACILITY" },
-      { "code": "POOL", "name": "수영장", "category": "FACILITY" }
+      { "featureId": 1, "code": "PARKING", "name": "주차장", "category": "FACILITY" },
+      { "featureId": 2, "code": "POOL", "name": "수영장", "category": "FACILITY" }
     ],
     "averageRating": 4.5,
     "reviewCount": 37,
@@ -620,7 +621,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
         "isAvailable": true,
         "imageUrls": ["/images/2026/11/r101a.jpg"],
         "features": [
-          { "code": "BATHTUB", "name": "욕조", "category": "AMENITY" }
+          { "featureId": 21, "code": "BATHTUB", "name": "욕조", "category": "FACILITY" }
         ]
       }
     ],
@@ -666,7 +667,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "예약 불가 날짜를 조회했습니다.",
   "data": {
     "accommodationId": 12,
     "from": "2026-12-01",
@@ -703,8 +703,8 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `featureId` | long | 편의시설 ID |
-| `code` | string | 고유 코드. 등록(7.2, 8.1)과 필터(6.1)에 이 값을 쓴다 |
+| `featureId` | long | 편의시설 ID. 등록·수정(7.2, 7.3, 8.1, 8.2)과 필터(6.1)에 이 값을 쓴다 |
+| `code` | string | 고유 코드(`PARKING`, `BATHTUB` 등) |
 | `name` | string | 화면에 보여 줄 이름 |
 | `category` | enum | `AMENITY`, `FACILITY`, `SERVICE` |
 | `target` | enum | `ACCOMMODATION`이면 숙소용, `ROOM`이면 객실용 |
@@ -712,15 +712,14 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "편의시설 목록을 조회했습니다.",
   "data": [
     { "featureId": 1, "code": "PARKING", "name": "주차장", "category": "FACILITY", "target": "ACCOMMODATION" },
-    { "featureId": 7, "code": "BATHTUB", "name": "욕조", "category": "AMENITY", "target": "ROOM" }
+    { "featureId": 21, "code": "BATHTUB", "name": "욕조", "category": "FACILITY", "target": "ROOM" }
   ]
 }
 ```
 
-예시의 코드와 분류는 설명용이다. 실제 항목은 초기 데이터로 정한다.
+항목은 `docs/erd.md`의 feature 기준 데이터(31개)를 따른다. ID는 `db/01_schema.sql`의 INSERT 순서다.
 
 **에러**: 400 `INVALID_INPUT`
 
@@ -748,14 +747,13 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 | `type` | enum | 숙소 유형 |
 | `region` | string | 지역 |
 | `address` | string | 주소 |
-| `thumbnailUrl` | string, null | 대표 이미지 URL. 이미지가 없으면 null |
+| `thumbnailUrl` | string, null | 대표 이미지 URL(id 오름차순 첫 이미지). 이미지가 없으면 null |
 | `roomCount` | int | 삭제되지 않은 객실 수 |
 | `createdAt` | datetime | 등록 일시 |
 
 ```json
 {
   "status": 200,
-  "message": "내 숙소 목록을 조회했습니다.",
   "data": {
     "content": [
       {
@@ -796,8 +794,8 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 | `region` | string | 필수 | 정의된 지역 값 중 하나 |
 | `address` | string | 필수 | 1~255자 |
 | `addressDetail` | string | 필수 | 1~255자 |
-| `imageUrls` | array | 선택 | 12.6이 돌려준 URL. 최대 10개 |
-| `featureCodes` | array | 선택 | 대상이 `ACCOMMODATION`인 편의시설 코드(6.4) |
+| `imageUrls` | array | 선택 | 12.6이 돌려준 URL. 최대 10개. 첫 번째가 대표 이미지 |
+| `featureIds` | long 배열 | 선택 | 대상이 `ACCOMMODATION`인 편의시설 ID(6.4) |
 
 ```json
 {
@@ -808,7 +806,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
   "address": "부산 해운대구 해운대해변로 100",
   "addressDetail": "본관",
   "imageUrls": ["/images/2026/11/a1b2c3.jpg", "/images/2026/11/d4e5f6.jpg"],
-  "featureCodes": ["PARKING", "POOL"]
+  "featureIds": [1, 2]
 }
 ```
 
@@ -817,7 +815,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 201,
-  "message": "숙소를 등록했습니다.",
   "data": { "accommodationId": 12 }
 }
 ```
@@ -828,7 +825,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 
 `PATCH /api/accommodations/{id}` · 권한: HOST (본인)
 
-보낸 필드만 바꾼다. 보내지 않은 필드는 그대로 둔다. `imageUrls`나 `featureCodes`를 보내면 기존 목록 전체를 보낸 목록으로 교체하고, 빈 배열을 보내면 모두 지운다.
+보낸 필드만 바꾼다. 보내지 않은 필드는 그대로 둔다. `imageUrls`나 `featureIds`를 보내면 기존 목록 전체를 보낸 목록으로 교체하고, 빈 배열을 보내면 모두 지운다.
 
 **요청 본문** (모두 선택, 1개 이상 필요)
 
@@ -840,8 +837,8 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 | `region` | string | 정의된 지역 값 중 하나 |
 | `address` | string | 1~255자 |
 | `addressDetail` | string | 1~255자 |
-| `imageUrls` | array | 최대 10개 |
-| `featureCodes` | array | 대상이 `ACCOMMODATION`인 코드 |
+| `imageUrls` | array | 최대 10개. 첫 번째가 대표 이미지 |
+| `featureIds` | long 배열 | 대상이 `ACCOMMODATION`인 ID |
 
 ```json
 {
@@ -855,7 +852,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "숙소를 수정했습니다.",
   "data": {
     "accommodationId": 12,
     "name": "해운대 오션뷰 호텔 신관",
@@ -866,8 +862,8 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
     "addressDetail": "본관",
     "imageUrls": ["/images/2026/11/a1b2c3.jpg", "/images/2026/11/d4e5f6.jpg"],
     "features": [
-      { "code": "PARKING", "name": "주차장", "category": "FACILITY" },
-      { "code": "POOL", "name": "수영장", "category": "FACILITY" }
+      { "featureId": 1, "code": "PARKING", "name": "주차장", "category": "FACILITY" },
+      { "featureId": 2, "code": "POOL", "name": "수영장", "category": "FACILITY" }
     ],
     "updatedAt": "2026-11-27T09:00:00"
   }
@@ -889,7 +885,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "숙소를 삭제했습니다.",
   "data": null
 }
 ```
@@ -916,8 +911,8 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 | `maxCapacity` | int | 필수 | - | `standardCapacity` 이상 |
 | `extraPersonFee` | int | 선택 | 0 | 0 이상 |
 | `isAvailable` | boolean | 선택 | true | - |
-| `imageUrls` | array | 선택 | - | 12.6이 돌려준 URL. 최대 10개 |
-| `featureCodes` | array | 선택 | - | 대상이 `ROOM`인 편의시설 코드(6.4) |
+| `imageUrls` | array | 선택 | - | 12.6이 돌려준 URL. 최대 10개. 첫 번째가 대표 이미지 |
+| `featureIds` | long 배열 | 선택 | - | 대상이 `ROOM`인 편의시설 ID(6.4) |
 
 ```json
 {
@@ -929,7 +924,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
   "maxCapacity": 3,
   "extraPersonFee": 20000,
   "imageUrls": ["/images/2026/11/r101a.jpg"],
-  "featureCodes": ["BATHTUB"]
+  "featureIds": [21]
 }
 ```
 
@@ -938,7 +933,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 201,
-  "message": "객실을 등록했습니다.",
   "data": { "roomId": 101 }
 }
 ```
@@ -950,7 +944,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 `PATCH /api/rooms/{roomId}` · 권한: HOST (본인)
 
 - 보낸 필드만 바꾼다.
-- `imageUrls`나 `featureCodes`를 보내면 기존 목록 전체를 보낸 목록으로 교체한다.
+- `imageUrls`나 `featureIds`를 보내면 기존 목록 전체를 보낸 목록으로 교체하고, 빈 배열을 보내면 모두 지운다.
 - 판매 중지는 `isAvailable`을 false로 보내서 처리한다. 판매 중지된 객실은 숙소 상세에는 보이지만 예약 생성은 거절된다.
 - 인원은 수정 후의 값 기준으로 `maxCapacity`가 `standardCapacity` 이상이어야 한다.
 - 가격을 바꿔도 이미 생성된 예약의 `total_price`는 바뀌지 않는다.
@@ -967,8 +961,8 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 | `maxCapacity` | int | `standardCapacity` 이상 |
 | `extraPersonFee` | int | 0 이상 |
 | `isAvailable` | boolean | - |
-| `imageUrls` | array | 최대 10개 |
-| `featureCodes` | array | 대상이 `ROOM`인 코드 |
+| `imageUrls` | array | 최대 10개. 첫 번째가 대표 이미지 |
+| `featureIds` | long 배열 | 대상이 `ROOM`인 ID |
 
 ```json
 {
@@ -982,7 +976,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "객실을 수정했습니다.",
   "data": {
     "roomId": 101,
     "accommodationId": 12,
@@ -996,7 +989,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
     "isAvailable": false,
     "imageUrls": ["/images/2026/11/r101a.jpg"],
     "features": [
-      { "code": "BATHTUB", "name": "욕조", "category": "AMENITY" }
+      { "featureId": 21, "code": "BATHTUB", "name": "욕조", "category": "FACILITY" }
     ],
     "updatedAt": "2026-11-27T09:10:00"
   }
@@ -1017,7 +1010,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "객실을 삭제했습니다.",
   "data": null
 }
 ```
@@ -1070,7 +1062,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 201,
-  "message": "예약을 생성했습니다.",
   "data": {
     "reservationId": 501,
     "status": "PENDING",
@@ -1116,7 +1107,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "내 예약 목록을 조회했습니다.",
   "data": {
     "content": [
       {
@@ -1173,7 +1163,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "예약을 조회했습니다.",
   "data": {
     "reservationId": 501,
     "status": "CONFIRMED",
@@ -1235,7 +1224,6 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 ```json
 {
   "status": 200,
-  "message": "예약을 취소했습니다.",
   "data": {
     "reservationId": 501,
     "status": "CANCELLED",
@@ -1326,7 +1314,6 @@ PENDING 예약을 결제하고 예약을 확정한다.
 ```json
 {
   "status": 201,
-  "message": "결제가 완료되어 예약이 확정되었습니다.",
   "data": {
     "paymentId": 9001,
     "reservationId": 501,
@@ -1367,7 +1354,6 @@ PENDING 예약을 결제하고 예약을 확정한다.
 ```json
 {
   "status": 200,
-  "message": "결제 내역을 조회했습니다.",
   "data": [
     {
       "paymentId": 9001,
@@ -1400,7 +1386,6 @@ PENDING 예약을 결제하고 예약을 확정한다.
 ```json
 {
   "status": 200,
-  "message": "포인트 잔액을 조회했습니다.",
   "data": { "balance": 12750 }
 }
 ```
@@ -1443,7 +1428,6 @@ PENDING 예약을 결제하고 예약을 확정한다.
 ```json
 {
   "status": 200,
-  "message": "포인트 내역을 조회했습니다.",
   "data": {
     "content": [
       { "pointHistoryId": 302, "type": "EARN", "amount": 2750, "reservationId": 501, "createdAt": "2026-12-01T15:03:00" },
@@ -1497,7 +1481,6 @@ PENDING 예약을 결제하고 예약을 확정한다.
 ```json
 {
   "status": 201,
-  "message": "리뷰를 등록했습니다.",
   "data": { "reviewId": 77 }
 }
 ```
@@ -1537,7 +1520,6 @@ PENDING 예약을 결제하고 예약을 확정한다.
 ```json
 {
   "status": 200,
-  "message": "리뷰 목록을 조회했습니다.",
   "data": {
     "averageRating": 4.5,
     "reviewCount": 37,
@@ -1634,7 +1616,6 @@ soft delete다. 삭제한 리뷰는 목록과 평균 평점 계산에서 빠진�
 ```json
 {
   "status": 201,
-  "message": "이미지를 업로드했습니다.",
   "data": { "imageUrl": "/images/2026/12/8f3a1c.jpg" }
 }
 ```
@@ -1643,12 +1624,12 @@ soft delete다. 삭제한 리뷰는 목록과 평균 평점 계산에서 빠진�
 
 ## 13. 담당자별 확인 요청
 
-각 담당자가 자기 절을 읽고 아래 항목을 확정하면, 0절의 가정을 지우고 본문을 고친다.
+각 담당자가 자기 절을 읽고 아래 항목을 확정하면, 0절의 가정을 0-1로 옮기고 본문을 고친다. 이미 확정된 항목은 0-1에 있으니 구현 전에 자기 담당 행을 확인한다.
 
 | 담당 | 확인할 내용 |
 |---|---|
-| A 임재상 | Refresh 토큰 저장 방식(가정 3). 소셜 전용 유저의 nullable 컬럼과 역할 처리(가정 4). 콜백에서 토큰을 주는 방식(가정 5). 가입 입력 규칙(가정 6). `birth_date` 유지 여부(가정 19) |
-| B 김진형 | 지역 값(가정 8). 목록 정렬 옵션(가정 10). 편의시설 조회 API와 필터 범위(가정 21, 23). 숙소·객실 이미지 장수와 대표 이미지(가정 22) |
+| A 임재상 | 콜백에서 토큰을 주는 방식(가정 5). 가입 입력 규칙(가정 6) |
+| B 김진형 | 지역 값(가정 8). 목록 정렬 옵션(가정 10) |
 | C 천승혁 | 금액 계산식(가정 11). PENDING 만료 시간(가정 12). 취소 가능 시점(가정 13). `PAYMENT.used_point` 컬럼 추가 여부(가정 15) |
-| D 최건 | 공통 응답·에러·페이지 포맷(가정 1). 포인트 적립률(가정 14). 취소 시 적립 포인트 처리(가정 20). 리뷰 재작성과 이미지 제한(가정 16, 17) |
-| 전원 | 회원 탈퇴 조건과 아이디·전화번호 재사용(가정 18). `address_detail` 필수 여부(가정 9) |
+| D 최건 | 포인트 적립률(가정 14). 취소 시 적립 포인트 처리(가정 20) |
+| 전원 | `address_detail` 필수 여부(가정 9). `room.grade`, `payment.method` 값 확정(가정 7) |
