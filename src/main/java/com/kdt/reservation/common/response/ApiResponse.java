@@ -1,23 +1,37 @@
 package com.kdt.reservation.common.response;
 
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-public record ApiResponse<T>(int status, T data) {
-    
-    public static <T> ResponseEntity<ApiResponse<T>> ok(T data) {
-        return of(HttpStatus.OK, data);
-    }
-    
-    public static ResponseEntity<ApiResponse<Void>> ok() {
-        return of(HttpStatus.OK, null);
-    }
-    
-    public static <T> ResponseEntity<ApiResponse<T>> created(T data) {
-        return of(HttpStatus.CREATED, data);
+import java.util.function.Function;
+
+public class ApiResponse<T> extends ResponseEntity<ApiResponse.Body<T>> {
+
+    public record Body<T>(int status, T data) {
     }
 
-    private static <T> ResponseEntity<ApiResponse<T>> of(HttpStatus status, T data) {
-        return ResponseEntity.status(status).body(new ApiResponse<>(status.value(), data));
+    private ApiResponse(HttpStatus status, T data) {
+        super(new Body<>(status.value(), data), status);
+    }
+
+    public static <T> ApiResponse<T> success(T data) {
+        return new ApiResponse<>(HttpStatus.OK, data);
+    }
+
+    public static ApiResponse<Void> success() {
+        return new ApiResponse<>(HttpStatus.OK, null);
+    }
+
+    public static <T> ApiResponse<T> created(T data) {
+        return new ApiResponse<>(HttpStatus.CREATED, data);
+    }
+
+    public static <T> ApiResponse<PageResponse<T>> page(Page<T> page) {
+        return success(PageResponse.from(page));
+    }
+
+    public static <E, T> ApiResponse<PageResponse<T>> page(Page<E> page, Function<? super E, ? extends T> mapper) {
+        return success(PageResponse.from(page, mapper));
     }
 }

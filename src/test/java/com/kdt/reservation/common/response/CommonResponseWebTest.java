@@ -13,7 +13,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -120,30 +119,30 @@ class CommonResponseWebTest {
     static class SampleController {
 
         @GetMapping("/test/empty")
-        ResponseEntity<ApiResponse<Void>> empty() {
-            return ApiResponse.ok();
+        ApiResponse<Void> empty() {
+            return ApiResponse.success();
         }
 
         @PostMapping("/test/created")
-        ResponseEntity<ApiResponse<Created>> created() {
+        ApiResponse<Created> created() {
             return ApiResponse.created(new Created(12));
         }
 
         @GetMapping("/test/dates")
-        ResponseEntity<ApiResponse<Dates>> dates() {
+        ApiResponse<Dates> dates() {
             LocalDateTime dateTime = LocalDateTime.of(2026, 11, 23, 14, 0, 0, 123_456_000);
-            return ApiResponse.ok(new Dates(dateTime.toLocalDate(), dateTime, null));
+            return ApiResponse.success(new Dates(dateTime.toLocalDate(), dateTime, null));
         }
 
         @GetMapping("/test/echo-date")
-        ResponseEntity<ApiResponse<LocalDate>> echoDate(@RequestParam LocalDate checkIn) {
-            return ApiResponse.ok(checkIn);
+        ApiResponse<LocalDate> echoDate(@RequestParam LocalDate checkIn) {
+            return ApiResponse.success(checkIn);
         }
 
         @GetMapping("/test/page")
-        ResponseEntity<ApiResponse<PageResponse<String>>> page(Pageable pageable) {
+        ApiResponse<PageResponse<String>> page(Pageable pageable) {
             Page<String> page = new PageImpl<>(List.of("a", "b"), pageable, 135);
-            return ApiResponse.ok(PageResponse.from(page));
+            return ApiResponse.page(page);
         }
     }
 }
