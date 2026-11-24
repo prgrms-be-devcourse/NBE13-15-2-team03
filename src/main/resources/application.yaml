@@ -19,3 +19,9 @@ spring:
     format:
       date: iso
       date-time: iso
+kdt:
+  jwt:
+    secret: ${JWT_SECRET}
+    access-seconds: 1800       # 30분
+    refresh-seconds: 1209600   # 14일
+  
