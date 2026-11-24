@@ -12,6 +12,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import javax.crypto.SecretKey;
+
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +29,8 @@ public class JwtProvider {
     private static final String CLAIM_ROLE = "role";
 
     private final SecretKey key;
+    // 로그인 응답의 accessTokenExpiresIn 에 쓴다
+    @Getter
     private final long accessSeconds;
     private final long refreshSeconds;
 
