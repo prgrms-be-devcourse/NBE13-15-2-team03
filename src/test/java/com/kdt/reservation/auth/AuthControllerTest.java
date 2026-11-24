@@ -10,6 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.kdt.reservation.auth.dto.CreateUserRequest;
 import com.kdt.reservation.auth.dto.CreateUserResponse;
+import com.kdt.reservation.auth.dto.LoginRequest;
+import com.kdt.reservation.auth.dto.LoginResponse;
+import com.kdt.reservation.user.Role;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -119,5 +122,50 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(authService, never()).signUp(any());
+    }
+
+    @Test
+    @DisplayName("로그인 성공 시 200과 토큰을 돌려준다")
+    void login_success() throws Exception {
+        given(authService.login(any(LoginRequest.class)))
+                .willReturn(new LoginResponse("Bearer", "access-token", 1800, "refresh-token",
+                        new LoginResponse.UserInfo(1L, "여행자", Role.GUEST)));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "loginId": "traveler01", "password": "pass1234word" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.data.user.role").value("GUEST"));
+    }
+
+    @Test
+    @DisplayName("아이디 또는 비밀번호가 틀리면 401을 돌려준다")
+    void login_fail() throws Exception {
+        given(authService.login(any(LoginRequest.class)))
+                .willThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "loginId": "traveler01", "password": "wrong1234" }
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("아이디나 비밀번호가 비어 있으면 400을 돌려준다")
+    void login_blank() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "loginId": "", "password": "" }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verify(authService, never()).login(any());
     }
 }
