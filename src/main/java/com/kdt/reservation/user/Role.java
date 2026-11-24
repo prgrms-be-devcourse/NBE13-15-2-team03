@@ -1,6 +1,6 @@
 package com.kdt.reservation.user;
 
-public enum role {
+public enum Role {
     GUEST,
     HOST,
 }

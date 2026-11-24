@@ -32,7 +32,7 @@ public class Users {
     private String phone;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private role role;
+    private Role role;
     @Column(name = "birth_date",nullable = false)
     private LocalDate birth_date;
     @Column(name = "created_at",nullable = false)
