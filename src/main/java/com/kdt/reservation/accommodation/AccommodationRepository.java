@@ -46,6 +46,20 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, Lo
     Optional<Accommodation> findActiveById(@Param("id") Long id);
 
     /**
+     * 삭제되지 않은 숙소가 "있는지 없는지"만 확인한다. (리뷰 담당 D 가 추가, 숙소 리뷰 목록 API 에서 사용)
+     *
+     * [위의 findActiveById 와 따로 둔 이유]
+     * 숙소 내용은 필요 없고 존재 여부만 알면 될 때는, 내용을 다 가져오는 것보다 개수만 세는 편이 가볍다.
+     * count(a) > 0 : 조건에 맞는 숙소가 1개 이상이면 true, 없으면 false 가 된다.
+     */
+    @Query("""
+            select count(a) > 0 from Accommodation a
+            where a.id = :id
+              and a.deleted_at is null
+            """)
+    boolean existsActiveById(@Param("id") Long id);
+
+    /**
      * 한 숙소에 달린 "삭제되지 않은" 리뷰의 개수를 센다. (명세 6.2 의 reviewCount)
      *
      * [리뷰 조회문을 숙소 레포지토리에 둔 이유]
