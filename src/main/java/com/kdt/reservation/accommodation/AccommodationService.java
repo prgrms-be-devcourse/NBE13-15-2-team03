@@ -6,6 +6,7 @@ import com.kdt.reservation.accommodation.dto.AccommodationDetailResponse.RoomInf
 import com.kdt.reservation.common.Feature;
 import com.kdt.reservation.common.exception.BusinessException;
 import com.kdt.reservation.common.exception.ErrorCode;
+import com.kdt.reservation.review.ReviewRepository;
 import com.kdt.reservation.room.Room;
 import com.kdt.reservation.room.RoomFeature;
 import com.kdt.reservation.room.RoomFeatureRepository;
@@ -51,6 +52,9 @@ public class AccommodationService {
     private final RoomRepository roomRepository;
     private final RoomImageRepository roomImageRepository;
     private final RoomFeatureRepository roomFeatureRepository;
+    // 평균 평점은 리뷰 담당(D)이 만든 리뷰 레포지토리의 메서드를 가져다 쓴다.
+    // 이유: 같은 조회문을 두 군데에 따로 두면, 한쪽만 고쳤을 때 숙소 상세와 리뷰 목록의 평점이 서로 달라질 수 있다.
+    private final ReviewRepository reviewRepository;
 
     /**
      * 숙소 상세 조회. (명세 6.2, 이슈 #27)
@@ -86,8 +90,10 @@ public class AccommodationService {
         }
 
         // 4) 리뷰 수와 평균 평점을 구한다. (삭제된 리뷰는 조회문에서 이미 빠져 있다)
+        //    - 리뷰 수: 리뷰 레포지토리에 아직 메서드가 없어 숙소 레포지토리의 임시 메서드를 쓴다. (TODO 표시해 둠)
+        //    - 평균 평점: 리뷰 레포지토리의 메서드를 쓴다. 리뷰가 없으면 null 이 온다.
         long reviewCount = accommodationRepository.countReviewsByAccommodationId(id);
-        Double rawAverage = accommodationRepository.findAverageRatingByAccommodationId(id);
+        Double rawAverage = reviewRepository.findAverageRatingByAccommodationId(id);
         double averageRating = roundToOneDecimal(rawAverage);
 
         // 5) 이 숙소의 객실 목록을 응답 모양으로 만든다. (아래 메서드로 따로 빼 두었다)
