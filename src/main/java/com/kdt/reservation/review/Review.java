@@ -58,5 +58,6 @@ public class Review {
     // 전략은 여전히 LAZY이지만, 호출하면 묶어서 조회
     @OneToMany(mappedBy = "review")
     @BatchSize(size = 100)
+    @OrderBy("id asc")
     private List<ReviewImage> images = new ArrayList<>();
 }
