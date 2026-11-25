@@ -6,17 +6,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
-/**
- * 숙소(accommodation) 테이블에서 데이터를 꺼내고 저장하는 창구.
- *
- * [interface 인데 구현 코드가 없는 이유]
- * JpaRepository 를 이어받으면(extends) 스프링이 앱을 켤 때 구현 코드를 대신 만들어 준다.
- * 그래서 save(저장), findById(번호로 찾기) 같은 기본 기능은 한 줄도 쓰지 않고 바로 쓸 수 있다.
- *
- * [JpaRepository<Accommodation, Long> 의 뜻]
- * "Accommodation 엔티티를 다루고, 그 기본키(id)의 타입은 Long 이다."
- */
 public interface AccommodationRepository extends JpaRepository<Accommodation, Long> {
+
+    @Query("""
+            select count(a) > 0 from Accommodation a
+            where a.id = :id
+              and a.deleted_at is null
+            """)
+    boolean existsActiveById(@Param("id") Long id);
 
     /**
      * 삭제되지 않은 숙소 한 건을 번호(id)로 찾는다. 숙소 주인(host) 정보도 함께 가져온다.
@@ -44,18 +41,4 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, Lo
      */
     @Query("select a from Accommodation a join fetch a.user where a.id = :id and a.deleted_at is null")
     Optional<Accommodation> findActiveById(@Param("id") Long id);
-
-    /**
-     * 삭제되지 않은 숙소가 "있는지 없는지"만 확인한다. (리뷰 담당 D 가 추가, 숙소 리뷰 목록 API 에서 사용)
-     *
-     * [위의 findActiveById 와 따로 둔 이유]
-     * 숙소 내용은 필요 없고 존재 여부만 알면 될 때는, 내용을 다 가져오는 것보다 개수만 세는 편이 가볍다.
-     * count(a) > 0 : 조건에 맞는 숙소가 1개 이상이면 true, 없으면 false 가 된다.
-     */
-    @Query("""
-            select count(a) > 0 from Accommodation a
-            where a.id = :id
-              and a.deleted_at is null
-            """)
-    boolean existsActiveById(@Param("id") Long id);
 }
