@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface ReviewRepository extends JpaRepository<Review, Long> {
     @Query(
             value = """
@@ -30,4 +32,13 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
               and r.deleted_at is null
             """)
     Double findAverageRatingByAccommodationId(@Param("accommodationId") Long accommodationId);
+
+    @Query("""
+            select new com.kdt.reservation.review.ReviewSummary(r.accommodation.id, count(r), avg(r.rating))
+            from Review r
+            where r.accommodation.id in :accommodationIds
+              and r.deleted_at is null
+            group by r.accommodation.id
+            """)
+    List<ReviewSummary> findSummariesByAccommodationIds(@Param("accommodationIds") List<Long> accommodationIds);
 }
