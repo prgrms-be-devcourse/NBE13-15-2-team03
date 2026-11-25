@@ -4,7 +4,11 @@ import com.kdt.reservation.common.response.PageResponse;
 
 public record AccommodationReviewListResponse(
         double averageRating,
-        int reviewCount,
+        long reviewCount,
         PageResponse<AccommodationReviewResponse> reviews
 ) {
+    public static AccommodationReviewListResponse from(PageResponse<AccommodationReviewResponse> reviews, double averageRating) {
+        long count = reviews.totalElements();
+        return new AccommodationReviewListResponse(averageRating, count, reviews);
+    }
 }
