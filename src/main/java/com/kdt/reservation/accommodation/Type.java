@@ -5,6 +5,6 @@ public enum Type {
     MOTEL,
     PENSION,
     RESORT,
-    POLL_VILLA,
+    POOL_VILLA,
     CAMPING
 }
