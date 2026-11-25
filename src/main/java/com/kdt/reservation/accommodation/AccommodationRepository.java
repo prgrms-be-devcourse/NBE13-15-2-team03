@@ -58,27 +58,4 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, Lo
               and a.deleted_at is null
             """)
     boolean existsActiveById(@Param("id") Long id);
-
-    /**
-     * 한 숙소에 달린 "삭제되지 않은" 리뷰의 개수를 센다. (명세 6.2 의 reviewCount)
-     *
-     * [리뷰 조회문을 숙소 레포지토리에 둔 이유]
-     * 리뷰 조회는 원래 리뷰 담당(D)의 ReviewRepository 에 있어야 한다.
-     * 평균 평점은 ReviewRepository 에 이미 있어서 그쪽 메서드를 쓰고 있고(AccommodationService 참고),
-     * "리뷰 수"를 세는 메서드는 아직 없어서 우선 여기에 두었다.
-     * 조회문(JPQL)은 어느 레포지토리에 적든 다른 엔티티(Review)를 읽을 수 있다.
-     *
-     * TODO(#27): 임시 메서드다. 리뷰 담당(D)이 ReviewRepository 에 리뷰 수 메서드를 만들어 머지하면,
-     *            이 countReviewsByAccommodationId 를 삭제하고 AccommodationService 가 그쪽 메서드를 쓰도록 바꾼다.
-     *            (11/25 팀 합의)
-     *
-     * [조회문 읽는 법]
-     * - select count(r) from Review r : Review 엔티티의 개수를 센다.
-     * - where r.accommodation.id = :accommodationId : 이 숙소에 달린 리뷰만.
-     * - and r.deleted_at is null      : 삭제된 리뷰는 세지 않는다. (명세 12.5: 삭제한 리뷰는 평점 계산에서 빠진다)
-     *
-     * [반환 타입이 long 인 이유] count 의 결과는 큰 수도 담을 수 있는 long 으로 나온다. 리뷰가 없으면 0 이다.
-     */
-    @Query("select count(r) from Review r where r.accommodation.id = :accommodationId and r.deleted_at is null")
-    long countReviewsByAccommodationId(@Param("accommodationId") Long accommodationId);
 }

@@ -6,7 +6,8 @@ import com.kdt.reservation.accommodation.dto.AccommodationDetailResponse.RoomInf
 import com.kdt.reservation.common.Feature;
 import com.kdt.reservation.common.exception.BusinessException;
 import com.kdt.reservation.common.exception.ErrorCode;
-import com.kdt.reservation.review.ReviewRepository;
+import com.kdt.reservation.review.ReviewService;
+import com.kdt.reservation.review.ReviewSummary;
 import com.kdt.reservation.room.Room;
 import com.kdt.reservation.room.RoomFeature;
 import com.kdt.reservation.room.RoomFeatureRepository;
@@ -52,9 +53,10 @@ public class AccommodationService {
     private final RoomRepository roomRepository;
     private final RoomImageRepository roomImageRepository;
     private final RoomFeatureRepository roomFeatureRepository;
-    // 평균 평점은 리뷰 담당(D)이 만든 리뷰 레포지토리의 메서드를 가져다 쓴다.
-    // 이유: 같은 조회문을 두 군데에 따로 두면, 한쪽만 고쳤을 때 숙소 상세와 리뷰 목록의 평점이 서로 달라질 수 있다.
-    private final ReviewRepository reviewRepository;
+    // 리뷰 수와 평균 평점은 리뷰 담당(D)이 만든 리뷰 서비스에 물어본다. (PR #50)
+    // 이유: 리뷰를 세고 평균을 내는 규칙(삭제된 리뷰 제외, 소수 첫째 자리 반올림, 리뷰가 없으면 0)을
+    //       리뷰 쪽 한 곳에만 두면, 숙소 상세·숙소 목록·리뷰 목록의 숫자가 항상 서로 같게 나온다.
+    private final ReviewService reviewService;
 
     /**
      * 숙소 상세 조회. (명세 6.2, 이슈 #27)
@@ -89,34 +91,19 @@ public class AccommodationService {
             features.add(FeatureInfo.of(feature));
         }
 
-        // 4) 리뷰 수와 평균 평점을 구한다. (삭제된 리뷰는 조회문에서 이미 빠져 있다)
-        //    - 리뷰 수: 리뷰 레포지토리에 아직 메서드가 없어 숙소 레포지토리의 임시 메서드를 쓴다. (TODO 표시해 둠)
-        //    - 평균 평점: 리뷰 레포지토리의 메서드를 쓴다. 리뷰가 없으면 null 이 온다.
-        long reviewCount = accommodationRepository.countReviewsByAccommodationId(id);
-        Double rawAverage = reviewRepository.findAverageRatingByAccommodationId(id);
-        double averageRating = roundToOneDecimal(rawAverage);
+        // 4) 리뷰 수와 평균 평점을 리뷰 서비스에서 받아 온다.
+        //    ReviewSummary 는 (숙소 번호, 리뷰 수, 평균 평점) 세 값을 담은 상자다.
+        //    - 삭제된 리뷰는 이미 빠져 있고, 평균은 소수 첫째 자리로 반올림되어 있다.
+        //    - 리뷰가 한 건도 없으면 리뷰 수 0, 평균 평점 0.0 이 담겨 온다. (null 이 아니라서 따로 검사할 필요가 없다)
+        ReviewSummary reviewSummary = reviewService.getReviewSummary(id);
 
         // 5) 이 숙소의 객실 목록을 응답 모양으로 만든다. (아래 메서드로 따로 빼 두었다)
         List<RoomInfo> rooms = getRoomInfos(id);
 
         // 6) 지금까지 모은 값들을 응답 모양(DTO)으로 묶어서 돌려준다.
         //    묶는 방법은 DTO 의 of 메서드에 모아 두었다.
-        return AccommodationDetailResponse.of(accommodation, imageUrls, features, averageRating, reviewCount, rooms);
-    }
-
-    /**
-     * 평균 평점을 소수 첫째 자리까지 반올림한다. 리뷰가 없어서 평균이 null 이면 0.0 을 돌려준다.
-     * (명세 6.2: 평균 평점은 소수 첫째 자리까지, 리뷰가 없으면 0.0)
-     *
-     * [계산 방법] 예: 4.4666... -> 10 을 곱해 44.666... -> 반올림해 45 -> 10.0 으로 나눠 4.5
-     * - Math.round : 소수점 아래를 반올림해 정수로 만든다.
-     * - 10 이 아니라 10.0 으로 나누는 이유: 정수끼리 나누면 소수점 아래가 버려져 4 가 되어 버린다.
-     */
-    private double roundToOneDecimal(Double average) {
-        if (average == null) {
-            return 0.0;
-        }
-        return Math.round(average * 10) / 10.0;
+        return AccommodationDetailResponse.of(accommodation, imageUrls, features,
+                reviewSummary.averageRating(), reviewSummary.reviewCount(), rooms);
     }
 
     /**
