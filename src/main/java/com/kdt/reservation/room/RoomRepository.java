@@ -6,13 +6,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-/**
- * 객실(room) 테이블에서 데이터를 꺼내고 저장하는 창구.
- *
- * JpaRepository 를 이어받았기 때문에 save(저장), findById(번호로 찾기) 같은 기본 기능은
- * 따로 쓰지 않아도 스프링이 만들어 준다. 여기에는 기본 기능에 없는 조회만 추가한다.
- */
-public interface RoomRepository extends JpaRepository<Room, Long> {
+public interface RoomRepository extends JpaRepository<Room,Long> {
 
     /**
      * 한 숙소에 속한 "삭제되지 않은" 객실들을 번호(id) 순서대로 가져온다.
