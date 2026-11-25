@@ -20,5 +20,17 @@ public record MyReservationListResponse(
         LocalDateTime createdAt
 ) {
     public record AccommodationSummary(Long accommodationId, String name){}
-    public record RoomSummary(Long roomId, String name){}
+    public static MyReservationListResponse from(Reservation reservation){
+        return new MyReservationListResponse(
+                reservation.getId(),
+                reservation.getStatus(),
+
+                reservation.getCheck_in_date(),
+                reservation.getCheck_out_date(),
+                reservation.getGuest_count(),
+                reservation.getTotal_price(),
+
+                reservation.getCreated_at()
+        )
+    }
 }

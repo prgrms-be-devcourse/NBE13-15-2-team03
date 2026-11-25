@@ -15,6 +15,4 @@ public record ReservedListResponse(
         int totalPrice,
         LocalDateTime createdAt
 ) {
-    public record RoomSummary(Long roomId,String name){}
-    public record GuestSummary(Long userId, String name){}
 }

@@ -3,16 +3,22 @@ package com.kdt.reservation.reservation;
 import com.kdt.reservation.common.exception.BusinessException;
 import com.kdt.reservation.common.exception.ErrorCode;
 import com.kdt.reservation.common.response.ApiResponse;
+import com.kdt.reservation.common.response.PageResponse;
 import com.kdt.reservation.room.Room;
 import com.kdt.reservation.room.RoomRepository;
 import com.kdt.reservation.user.UserRepository;
 import com.kdt.reservation.user.Users;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -68,5 +74,15 @@ public class ReservationService {
 
     }
 
+    //9.2 내 예약 목록
+    @Transactional(readOnly = true)
+    public ApiResponse<MyReservationListResponse> findMyReservations(Long userId,Status status,Pageable pageable){
+        //내 예약이 존재 하는지 먼저 확인, 없으면 일단 401 UNAUTHORIZED
+        Users user = this.userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        List<Reservation> lists = this.reservationRepository.findAllByUserId(userId,status,pageable);
+        return lists;
+
+    }
 
 }

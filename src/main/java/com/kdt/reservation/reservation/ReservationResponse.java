@@ -21,10 +21,8 @@ public record ReservationResponse(
         LocalDateTime createdAt,
         LocalDateTime cancelledAt
 ) {
-    public record GuestSummary (Long userId, String name){}
     public record AccommodationSummary(Long accommodationId,
                String name, String address){}
-    public record RoomSummary(Long roomId, String name){}
     public record PaymentSummary(
             Long paymentId,
             PayMethod method,
