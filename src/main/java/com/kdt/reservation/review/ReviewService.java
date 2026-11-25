@@ -20,7 +20,8 @@ public class ReviewService {
         Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort.toSort());
         Page<Review> page = this.reviewRepository.findByAccommodationId(id, sorted);
         PageResponse<AccommodationReviewResponse> reviews = PageResponse.from(page, AccommodationReviewResponse::from);
-        double averageRating = this.reviewRepository.findAverageRatingByAccommodationId(id);
+        Double average = this.reviewRepository.findAverageRatingByAccommodationId(id);
+        double averageRating = average == null ? 0.0 : Math.round(average * 10) / 10.0;
         return AccommodationReviewListResponse.from(reviews, averageRating);
     }
 }
