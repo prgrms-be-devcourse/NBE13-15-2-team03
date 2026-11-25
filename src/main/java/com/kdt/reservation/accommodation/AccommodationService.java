@@ -1,13 +1,21 @@
 package com.kdt.reservation.accommodation;
 
 import com.kdt.reservation.accommodation.dto.AccommodationDetailResponse;
+import com.kdt.reservation.accommodation.dto.AccommodationDetailResponse.RoomInfo;
 import com.kdt.reservation.common.exception.BusinessException;
 import com.kdt.reservation.common.exception.ErrorCode;
+import com.kdt.reservation.room.Room;
+import com.kdt.reservation.room.RoomImage;
+import com.kdt.reservation.room.RoomImageRepository;
+import com.kdt.reservation.room.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 숙소 관련 "실제 처리 규칙"을 담는 곳.
@@ -34,6 +42,9 @@ public class AccommodationService {
     // final: 한 번 넣어 주면 바뀌지 않는다는 뜻. 실수로 다른 것으로 바꿔치기하는 일을 막는다.
     private final AccommodationRepository accommodationRepository;
     private final AccommodationImageRepository accommodationImageRepository;
+    // 숙소 상세에는 객실 정보도 들어가므로 객실 쪽 레포지토리도 넘겨받아 쓴다.
+    private final RoomRepository roomRepository;
+    private final RoomImageRepository roomImageRepository;
 
     /**
      * 숙소 상세 조회. (명세 6.2, 이슈 #27)
@@ -61,8 +72,56 @@ public class AccommodationService {
         // 2) 이 숙소의 이미지 주소 목록을 id 오름차순으로 가져온다. 이미지가 없으면 빈 목록이 온다.
         List<String> imageUrls = accommodationImageRepository.findUrlsByAccommodationId(id);
 
-        // 3) 엔티티를 응답 모양(DTO)으로 바꿔서 돌려준다.
+        // 3) 이 숙소의 객실 목록을 응답 모양으로 만든다. (아래 메서드로 따로 빼 두었다)
+        List<RoomInfo> rooms = getRoomInfos(id);
+
+        // 4) 엔티티를 응답 모양(DTO)으로 바꿔서 돌려준다.
         //    바꾸는 방법은 DTO 의 of 메서드에 모아 두었다.
-        return AccommodationDetailResponse.of(accommodation, imageUrls);
+        return AccommodationDetailResponse.of(accommodation, imageUrls, rooms);
+    }
+
+    /**
+     * 한 숙소의 객실들을 응답 모양(RoomInfo)의 목록으로 만든다.
+     *
+     * [private 메서드로 따로 뺀 이유]
+     * getDetail 안에 전부 적으면 길어져서 "큰 흐름"이 한눈에 안 보인다.
+     * 객실 부분만 떼어 이름을 붙여 두면 getDetail 은 1)~4) 순서만 읽어도 이해된다.
+     * private 은 "이 클래스 안에서만 쓴다"는 뜻이다.
+     *
+     * [DB 조회 횟수] 객실 조회 1번 + 객실 이미지 조회 1번 = 총 2번. 객실 수가 늘어도 2번 그대로다.
+     */
+    private List<RoomInfo> getRoomInfos(Long accommodationId) {
+
+        // (1) 삭제되지 않은 객실들을 번호 순서대로 가져온다. 판매 중지 객실도 포함된다. (명세 6.2)
+        List<Room> rooms = roomRepository.findActiveByAccommodationId(accommodationId);
+
+        // (2) 이 숙소의 모든 객실 이미지를 한 번에 가져온다. (객실마다 따로 조회하지 않기 위해서)
+        List<RoomImage> roomImages = roomImageRepository.findByAccommodationId(accommodationId);
+
+        // (3) 가져온 이미지들을 "객실 번호 -> 그 객실의 이미지 주소 목록" 모양으로 나눠 담는다.
+        //     - Map 은 "열쇠(key)로 값(value)을 찾는 사전" 같은 자료 구조다. 여기서는 열쇠가 객실 번호다.
+        //     - 이렇게 정리해 두면 (4)에서 객실마다 자기 이미지를 바로 꺼낼 수 있다.
+        Map<Long, List<String>> imageUrlsByRoomId = new HashMap<>();
+        for (RoomImage roomImage : roomImages) {
+            // 이 이미지가 어느 객실의 것인지 알아낸다.
+            // (1)에서 객실들을 이미 가져왔기 때문에 여기서 DB 조회가 더 나가지 않는다.
+            Long roomId = roomImage.getRoom().getId();
+
+            // computeIfAbsent: 이 객실 번호의 목록이 아직 없으면 빈 목록을 새로 만들어 넣고, 있으면 그 목록을 꺼낸다.
+            // 그렇게 얻은 목록에 이미지 주소를 하나 추가한다.
+            // (roomImages 가 id 오름차순으로 왔으므로 객실별 목록도 자연히 id 오름차순이 된다)
+            imageUrlsByRoomId.computeIfAbsent(roomId, key -> new ArrayList<>()).add(roomImage.getUrl());
+        }
+
+        // (4) 객실 엔티티를 하나씩 응답 모양(RoomInfo)으로 바꾼다.
+        List<RoomInfo> roomInfos = new ArrayList<>();
+        for (Room room : rooms) {
+            // getOrDefault: 이 객실의 이미지 목록이 있으면 그것을, 없으면 빈 목록(List.of())을 쓴다.
+            // 이유: 이미지가 한 장도 없는 객실은 사전에 들어 있지 않다.
+            //       그대로 꺼내면 null 이 나오는데, 명세는 "없으면 빈 배열"이라서 빈 목록으로 바꿔 준다.
+            List<String> roomImageUrls = imageUrlsByRoomId.getOrDefault(room.getId(), List.of());
+            roomInfos.add(RoomInfo.of(room, roomImageUrls));
+        }
+        return roomInfos;
     }
 }

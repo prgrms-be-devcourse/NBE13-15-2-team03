@@ -1,7 +1,10 @@
 package com.kdt.reservation.accommodation.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kdt.reservation.accommodation.Accommodation;
 import com.kdt.reservation.accommodation.Type;
+import com.kdt.reservation.room.Grade;
+import com.kdt.reservation.room.Room;
 import com.kdt.reservation.user.Users;
 
 import java.time.LocalDateTime;
@@ -24,8 +27,8 @@ import java.util.List;
  * [괄호 안 필드 이름이 중요한 이유]
  * 여기 적은 이름이 그대로 JSON 의 키 이름이 된다. 그래서 명세 6.2의 이름과 똑같이 적었다.
  *
- * [현재 범위] 1단계: 숙소 기본 정보 + 이미지.
- * 편의시설(features), 평점(averageRating, reviewCount), 객실(rooms)은 다음 단계에서 추가한다.
+ * [현재 범위] 2단계: 숙소 기본 정보 + 이미지 + 객실 목록(객실 이미지 포함).
+ * 편의시설(features), 평점(averageRating, reviewCount)은 다음 단계에서 추가한다.
  */
 public record AccommodationDetailResponse(
         Long accommodationId,       // 숙소 번호
@@ -37,6 +40,7 @@ public record AccommodationDetailResponse(
         String address,             // 주소
         String addressDetail,       // 상세 주소
         List<String> imageUrls,     // 이미지 주소 목록. 첫 번째가 대표 이미지, 없으면 빈 목록
+        List<RoomInfo> rooms,       // 객실 목록. 삭제된 객실은 빠지고 판매 중지 객실은 포함. 없으면 빈 목록
         LocalDateTime createdAt     // 등록 일시
 ) {
 
@@ -52,6 +56,57 @@ public record AccommodationDetailResponse(
     }
 
     /**
+     * 객실 한 개의 정보. 명세 6.2 의 rooms[] 안에 들어가는 모양이다.
+     *
+     * [바깥 record 안에 넣어 둔 이유]
+     * 지금은 숙소 상세 응답에서만 쓰는 모양이라, 한 파일 안에 모아 두는 편이 찾기 쉽다.
+     */
+    public record RoomInfo(
+            Long roomId,                // 객실 번호
+            String name,                // 객실 이름
+            String description,         // 객실 설명 (없으면 null)
+            int price,                  // 1박 가격
+            Grade grade,                // 객실 등급 (STANDARD, DELUXE, SUITE)
+            int standardCapacity,       // 기준 인원
+            int maxCapacity,            // 최대 인원
+            int extraPersonFee,         // 기준 인원을 넘을 때 1인당 추가 요금
+
+            // 판매 여부. false 면 예약할 수 없다.
+            // [@JsonProperty("isAvailable") 를 붙인 이유]
+            // 자바에서 boolean 값은 is 로 시작하는 이름을 특별하게 취급해서,
+            // JSON 으로 바꿀 때 앞의 is 가 떨어져 "available" 로 나갈 수 있다.
+            // 명세의 이름은 "isAvailable" 이므로, 이 이름으로 내보내라고 직접 정해 둔다.
+            @JsonProperty("isAvailable") boolean isAvailable,
+
+            List<String> imageUrls      // 객실 이미지 주소 목록. id 오름차순, 없으면 빈 목록
+    ) {
+
+        /**
+         * 객실 엔티티를 응답 상자로 바꾼다.
+         *
+         * [getStandard_capacity() 처럼 이름에 밑줄이 있는 이유]
+         * 엔티티 필드 이름이 standard_capacity 이고, 롬복(@Getter)이 그 이름 앞에 get 을 붙여 만들기 때문이다.
+         * [room.isAvailable() 만 get 이 아니라 is 로 시작하는 이유]
+         * 롬복은 boolean 필드의 꺼내는 메서드를 get 대신 is 로 만든다. (엔티티의 필드 이름은 available)
+         */
+        public static RoomInfo of(Room room, List<String> imageUrls) {
+            // 아래 값의 순서는 위 record 괄호 안에 적은 필드 순서와 같아야 한다.
+            return new RoomInfo(
+                    room.getId(),
+                    room.getName(),
+                    room.getDescription(),
+                    room.getPrice(),
+                    room.getGrade(),
+                    room.getStandard_capacity(),
+                    room.getMax_capacity(),
+                    room.getExtra_person_fee(),
+                    room.isAvailable(),
+                    imageUrls
+            );
+        }
+    }
+
+    /**
      * 엔티티(DB 에서 꺼낸 값)를 응답 상자(DTO)로 바꾸는 메서드.
      *
      * [static 메서드로 만든 이유]
@@ -61,8 +116,14 @@ public record AccommodationDetailResponse(
      * [getAddress_detail(), getCreated_at() 처럼 이름에 밑줄이 있는 이유]
      * 엔티티 필드 이름이 address_detail, created_at 이고,
      * 롬복(@Getter)이 필드 이름 앞에 get 을 붙여 꺼내는 메서드를 만들어 주기 때문이다.
+     *
+     * @param accommodation 숙소 엔티티 (주인 정보가 함께 조회되어 있어야 한다)
+     * @param imageUrls     숙소 이미지 주소 목록
+     * @param rooms         이미 응답 모양으로 바꿔 둔 객실 목록
      */
-    public static AccommodationDetailResponse of(Accommodation accommodation, List<String> imageUrls) {
+    public static AccommodationDetailResponse of(Accommodation accommodation,
+                                                 List<String> imageUrls,
+                                                 List<RoomInfo> rooms) {
         // 숙소 주인. 레포지토리에서 join fetch 로 함께 가져왔기 때문에 여기서 DB 조회가 더 나가지 않는다.
         Users host = accommodation.getUser();
 
@@ -77,6 +138,7 @@ public record AccommodationDetailResponse(
                 accommodation.getAddress(),
                 accommodation.getAddress_detail(),
                 imageUrls,
+                rooms,
                 accommodation.getCreated_at()
         );
     }
