@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Collection;
 import java.util.List;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
@@ -41,5 +40,5 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
               and r.deleted_at is null
             group by r.accommodation.id
             """)
-    List<ReviewSummary> findSummariesByAccommodationIds(@Param("accommodationIds") Collection<Long> accommodationIds);
+    List<ReviewSummary> findSummariesByAccommodationIds(@Param("accommodationIds") List<Long> accommodationIds);
 }

@@ -54,6 +54,6 @@ public class ReviewService {
     // 숙소 하나의 리뷰 수와 평균 평점을 조회한다
     @Transactional(readOnly = true)
     public ReviewSummary getReviewSummary(Long accommodationId) {
-        return getReviewSummaries(List.of(accommodationId)).get(accommodationId);
+        return this.getReviewSummaries(List.of(accommodationId)).get(accommodationId);
     }
 }
