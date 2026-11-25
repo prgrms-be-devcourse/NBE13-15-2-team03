@@ -1,14 +1,14 @@
 package com.kdt.reservation.reservation;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public record CreateReservationRequest(
         @NotNull Long roomId,
-        @NotNull LocalDateTime checkInDate,
-        @NotNull LocalDateTime checkOutDate,
-        @NotNull @Size(min = 1) int guestCount
+        @NotNull LocalDate checkInDate,
+        @NotNull LocalDate checkOutDate,
+        @NotNull @Min(1) int guestCount
         ) {
 }
