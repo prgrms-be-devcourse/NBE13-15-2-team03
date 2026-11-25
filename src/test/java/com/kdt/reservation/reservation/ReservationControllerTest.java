@@ -39,18 +39,13 @@ public class ReservationControllerTest {
         CreateReservationResponse response = new CreateReservationResponse(
                 501L, Status.PENDING,280000,2, LocalDateTime.of(2026,12,1,15,10)
         );
-
-        given(reservationService.create(any(CreateReservationRequest.class)))
+        given(reservationService.create(any(CreateReservationRequest.class),any()))
                 .willReturn(ApiResponse.created(response));
-
-
         mvc.perform(
                         post("/api/reservations")
                                 .contentType("application/json")
                                 .content(body))
                 .andExpect(status().isCreated());
-
-
     }
 
 
