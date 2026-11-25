@@ -19,18 +19,17 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final AccommodationRepository accommodationRepository;
 
-    // TODO: 예외처리 + 리팩토링(네이밍 / DTO 위치 고민)
     @Transactional(readOnly = true)
-    public AccommodationReviewListResponse getAccommodationReviews(Long id, ReviewSort sort, Pageable pageable) {
-        if (!this.accommodationRepository.existsActiveById(id)) {
+    public AccommodationReviewListResponse getAccommodationReviews(Long accommodationId, ReviewSort sort, Pageable pageable) {
+        if (!this.accommodationRepository.existsActiveById(accommodationId)) {
             throw new BusinessException(ErrorCode.ACCOMMODATION_NOT_FOUND);
         }
 
         Pageable sorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort.toSort());
-        Page<Review> page = this.reviewRepository.findByAccommodationId(id, sorted);
+        Page<Review> page = this.reviewRepository.findByAccommodationId(accommodationId, sorted);
         PageResponse<AccommodationReviewResponse> reviews = PageResponse.from(page, AccommodationReviewResponse::from);
-        Double average = this.reviewRepository.findAverageRatingByAccommodationId(id);
+        Double average = this.reviewRepository.findAverageRatingByAccommodationId(accommodationId);
         double averageRating = average == null ? 0.0 : Math.round(average * 10) / 10.0;
-        return AccommodationReviewListResponse.from(reviews, averageRating);
+        return AccommodationReviewListResponse.of(reviews, averageRating);
     }
 }

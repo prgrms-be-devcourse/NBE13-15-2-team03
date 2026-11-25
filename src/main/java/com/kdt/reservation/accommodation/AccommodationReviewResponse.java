@@ -17,19 +17,19 @@ public record AccommodationReviewResponse(
         String roomName,
         LocalDateTime createdAt
 ) {
-    public static record Author(long userId, String nickname) {
+    public record Author(long userId, String nickname) {
     }
-    
+
     public static AccommodationReviewResponse from(Review review) {
         Users user = review.getUser();
         Author author = new Author(user.getId(), user.getNickname());
-        List<String> images = review.getImages().stream().map(ReviewImage::getUrl).toList();
+        List<String> imageUrls = review.getImages().stream().map(ReviewImage::getUrl).toList();
         return new AccommodationReviewResponse(
                 review.getId(),
                 review.getRating(),
                 review.getTitle(),
                 review.getBody(),
-                images,
+                imageUrls,
                 author,
                 review.getReservation().getRoom().getName(),
                 review.getCreated_at()

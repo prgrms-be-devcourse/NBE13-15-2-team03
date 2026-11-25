@@ -7,7 +7,7 @@ public record AccommodationReviewListResponse(
         long reviewCount,
         PageResponse<AccommodationReviewResponse> reviews
 ) {
-    public static AccommodationReviewListResponse from(PageResponse<AccommodationReviewResponse> reviews, double averageRating) {
+    public static AccommodationReviewListResponse of(PageResponse<AccommodationReviewResponse> reviews, double averageRating) {
         long count = reviews.totalElements();
         return new AccommodationReviewListResponse(averageRating, count, reviews);
     }
