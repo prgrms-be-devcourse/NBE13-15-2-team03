@@ -22,7 +22,6 @@
 | 11 | 예약 금액 계산 | `price × 박 수 + extra_person_fee × 초과 인원 × 박 수` | 9.1 |
 | 12 | PENDING 예약 만료 | 생성 후 10분 안에 결제하지 않으면 자동 취소 | 9.1, 10.1 |
 | 13 | 예약 취소 가능 시점 | 체크인 전날까지. 체크인 당일부터는 불가 | 9.4 |
-| 14 | 포인트 규칙 | 1P = 1원, 1P 단위 사용. 결제 시 적립, 예약 취소 시 사용분 환불. `POINT_HISTORY.amount`는 항상 양수로 저장. **적립률은 미정** | 10, 11 |
 | 15 | 결제의 사용·적립 포인트 | `PAYMENT`에 포인트 컬럼이 없다. 응답의 `usedPoint`, `earnedPoint`는 `POINT_HISTORY`에서 `reservation_id`와 `type`으로 찾는다. `PAYMENT.used_point` 컬럼을 추가하면 조회가 단순해진다 | 9.3, 10 |
 | 20 | 취소 시 적립 포인트 | 회수하지 않는다. ERD의 내역 유형이 `EARN`, `USE`, `REFUND`뿐이라 회수를 기록할 수 없다. **이대로면 결제와 취소를 반복해 포인트를 쌓을 수 있다.** 회수 유형을 추가하거나 적립 시점을 체크아웃 이후로 옮겨야 한다 | 9.4, 11.2 |
 
@@ -35,6 +34,7 @@
 | 1 | 공통 응답 포맷 | 성공 응답은 `status`와 `data`만 담는다. `message`는 에러 응답에만 둔다. 페이지 포맷은 1.3 그대로 | 1.1~1.3, 전체 | D |
 | 3 | Refresh 토큰 저장 | 서버 인메모리에 저장하며 테이블은 없다. 사용자당 1개, 재발급 때 교체. 서버 인스턴스를 늘릴 때 Redis로 옮긴다 | 3.3, 3.4 | A |
 | 4 | 소셜 전용 유저의 컬럼 | `login_id`, `password`, `phone`, `birth_date`는 모두 NOT NULL을 유지하고, 소셜 가입 시 서버가 임시 값을 넣는다. `login_id` = `{provider}_{providerUserId}` (예: `kakao_123456`), `password` = 랜덤 문자열의 BCrypt 해시, `phone` = 유니크한 임시 값(형식은 A가 구현에서 정함), `birth_date` = `1900-01-01`. 역할은 GUEST 고정. **소셜 전용 계정 판단 기준**: `SOCIAL_USER` 연결이 있고 `login_id`가 서버 생성 형식인 계정. `phone`, `birth_date`가 임시 값이면 응답에서는 null로 돌려주고 5.2로 채우게 한다 | 4, 5 | A |
+| 14 | 포인트 규칙 | 1P = 1원, 1P 단위 사용. 결제 시 결제 금액(`amount`)의 5%를 적립하고 소수점 이하는 버린다. 예약 취소 시 사용분 환불. `POINT_HISTORY.amount`는 항상 양수로 저장 | 10, 11 | D |
 | 16 | 리뷰 재작성 | 삭제한 리뷰의 예약에는 다시 쓸 수 없다(ERD 설계 메모). 이미지는 리뷰당 최대 5장 | 12 | D |
 | 17 | 이미지 저장 | 저장 위치는 Cloud Storage(S3). 업로드 기능을 구현하기 전에는 랜덤 이미지 URL을 `imageUrls`에 넣어 쓴다. jpg, png, webp. 파일당 5MB 이하 | 12.6 | D |
 | 18 | 탈퇴한 아이디·전화번호 | 재사용하지 않는다. `login_id`, `phone`이 UK이고 탈퇴가 soft delete라 현 스키마로는 재사용할 수 없다. 체크아웃 전인 예약이 있으면 탈퇴 거절 | 5.4 | A |
@@ -42,6 +42,7 @@
 | 21 | 편의시설 데이터 | `FEATURE` 행은 `db/01_schema.sql`로 관리하고 API로는 만들거나 고치지 않는다. 선택할 수 있는 목록을 주는 `GET /api/features`(6.4)는 1차 목록에 없던 추가 API다 | 6.4 | B |
 | 22 | 숙소·객실 이미지 | 각각 최대 10장. ERD에 순서나 대표 컬럼이 없으므로 id 오름차순 첫 번째 이미지를 대표(`thumbnailUrl`)로 쓴다. 수정은 목록 전체 교체(12.4와 같은 방식) | 6, 7, 8 | B |
 | 23 | 편의시설 필터와 식별자 | 요청과 필터는 `featureId`(숫자)로 받는다. 숙소 목록은 숙소 편의시설로만 거르고, 여러 개를 보내면 모두 가진 숙소만(AND) 포함한다. 객실용 id를 보내면 400 `INVALID_FEATURE`. 수정은 목록 전체 교체 | 6.1, 7, 8 | B |
+| 24 | 예약당 포인트 내역 | 한 예약에 `USE`, `EARN`, `REFUND` 내역은 유형별로 최대 1건이다. 같은 유형을 다시 만들려 하면 500 `POINT_HISTORY_ALREADY_EXISTS` | 9.4, 10.1, 11 | D |
 
 ## 1. 공통
 
@@ -124,6 +125,7 @@
 | 404 | 대상 없음 |
 | 409 | 현재 상태와 충돌 (중복, 날짜 겹침, 이미 처리됨) |
 | 413 | 업로드 파일이 너무 큼 |
+| 500 | 서버 내부 오류 (데이터 정합성 위반) |
 
 ### 1.5 에러 코드
 
@@ -158,6 +160,7 @@
 | 결제 | 400 | `INVALID_POINT_AMOUNT` | 사용 포인트가 음수이거나 결제 금액보다 큼 |
 | 결제 | 409 | `RESERVATION_NOT_PAYABLE` | 예약이 PENDING이 아님 (이미 결제, 취소, 만료) |
 | 결제 | 409 | `INSUFFICIENT_POINT` | 보유 포인트 부족 |
+| 결제 | 500 | `POINT_HISTORY_ALREADY_EXISTS` | 같은 예약에 같은 유형(`USE`, `EARN`, `REFUND`)의 포인트 내역이 이미 있음. 서버 오류이며 정상 흐름에서는 나오지 않는다 |
 | 리뷰 | 400 | `REVIEW_NOT_ALLOWED` | 예약이 CONFIRMED가 아니거나 체크아웃 전 |
 | 리뷰 | 403 | `NOT_REVIEW_AUTHOR` | 다른 사람의 리뷰 |
 | 리뷰 | 404 | `REVIEW_NOT_FOUND` | 리뷰가 없거나 삭제됨 |
@@ -1233,7 +1236,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 }
 ```
 
-**에러**: 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_ALREADY_CANCELLED`, 409 `CANCEL_PERIOD_EXPIRED`
+**에러**: 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_ALREADY_CANCELLED`, 409 `CANCEL_PERIOD_EXPIRED`, 500 `POINT_HISTORY_ALREADY_EXISTS`
 
 ### 9.5 숙소의 예약 목록
 
@@ -1295,7 +1298,7 @@ PENDING 예약을 결제하고 예약을 확정한다.
 1. 결제 금액 `amount`는 `totalPrice − usePoint`로 서버가 계산한다. 요청으로 받지 않는다.
 2. `usePoint`만큼 포인트를 차감하고 사용 내역을 남긴다. 동시에 들어온 요청이 같은 잔액을 두 번 쓰지 못하게 락을 건다.
 3. 결제를 `PAID`로 저장하고 예약을 `CONFIRMED`로 바꾼다.
-4. `amount`에 적립률을 곱한 포인트를 적립하고 내역을 남긴다.
+4. `amount`의 5%를 포인트로 적립하고 내역을 남긴다. 소수점 이하는 버린다.
 
 **응답 201** `data`
 
@@ -1322,15 +1325,15 @@ PENDING 예약을 결제하고 예약을 확정한다.
     "status": "PAID",
     "amount": 275000,
     "usedPoint": 5000,
-    "earnedPoint": 2750,
+    "earnedPoint": 13750,
     "paidAt": "2026-12-01T15:03:00"
   }
 }
 ```
 
-예시의 `earnedPoint`는 적립률을 1%로 놓고 계산한 값이다. 적립률은 아직 정해지지 않았다. `usedPoint`와 `earnedPoint`는 `PAYMENT`에 컬럼이 없어 이 예약의 `POINT_HISTORY`에서 읽는다(가정 15).
+`usedPoint`와 `earnedPoint`는 `PAYMENT`에 컬럼이 없어 이 예약의 `POINT_HISTORY`에서 읽는다(가정 15).
 
-**에러**: 400 `INVALID_INPUT`, 400 `INVALID_POINT_AMOUNT`, 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_NOT_PAYABLE`, 409 `INSUFFICIENT_POINT`
+**에러**: 400 `INVALID_INPUT`, 400 `INVALID_POINT_AMOUNT`, 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_NOT_PAYABLE`, 409 `INSUFFICIENT_POINT`, 500 `POINT_HISTORY_ALREADY_EXISTS`
 
 ### 10.2 결제 내역 조회
 
@@ -1386,7 +1389,7 @@ PENDING 예약을 결제하고 예약을 확정한다.
 ```json
 {
   "status": 200,
-  "data": { "balance": 12750 }
+  "data": { "balance": 23750 }
 }
 ```
 
@@ -1430,7 +1433,7 @@ PENDING 예약을 결제하고 예약을 확정한다.
   "status": 200,
   "data": {
     "content": [
-      { "pointHistoryId": 302, "type": "EARN", "amount": 2750, "reservationId": 501, "createdAt": "2026-12-01T15:03:00" },
+      { "pointHistoryId": 302, "type": "EARN", "amount": 13750, "reservationId": 501, "createdAt": "2026-12-01T15:03:00" },
       { "pointHistoryId": 301, "type": "USE", "amount": 5000, "reservationId": 501, "createdAt": "2026-12-01T15:03:00" }
     ],
     "page": 0,
@@ -1631,5 +1634,5 @@ soft delete다. 삭제한 리뷰는 목록과 평균 평점 계산에서 빠진�
 | A 임재상 | 콜백에서 토큰을 주는 방식(가정 5). 가입 입력 규칙(가정 6) |
 | B 김진형 | 지역 값(가정 8). 목록 정렬 옵션(가정 10) |
 | C 천승혁 | 금액 계산식(가정 11). PENDING 만료 시간(가정 12). 취소 가능 시점(가정 13). `PAYMENT.used_point` 컬럼 추가 여부(가정 15) |
-| D 최건 | 포인트 적립률(가정 14). 취소 시 적립 포인트 처리(가정 20) |
+| D 최건 | 취소 시 적립 포인트 처리(가정 20) |
 | 전원 | `address_detail` 필수 여부(가정 9). `room.grade`, `payment.method` 값 확정(가정 7) |
