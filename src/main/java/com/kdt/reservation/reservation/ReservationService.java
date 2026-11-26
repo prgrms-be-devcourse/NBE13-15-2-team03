@@ -3,16 +3,23 @@ package com.kdt.reservation.reservation;
 import com.kdt.reservation.common.exception.BusinessException;
 import com.kdt.reservation.common.exception.ErrorCode;
 import com.kdt.reservation.common.response.ApiResponse;
+import com.kdt.reservation.common.response.PageResponse;
+import com.kdt.reservation.review.ReviewRepository;
 import com.kdt.reservation.room.Room;
 import com.kdt.reservation.room.RoomRepository;
 import com.kdt.reservation.user.UserRepository;
 import com.kdt.reservation.user.Users;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +27,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
+    private final ReviewRepository reviewRepository;
 
     //9.1 예약 생성
     @Transactional
@@ -55,7 +63,7 @@ public class ReservationService {
 
         //User
         Users user = this.userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Reservation reservation = new Reservation(user,room,request.guestCount(),totalprice,Status.PENDING,
                 request.checkInDate(),request.checkOutDate(),createtime);
 
@@ -66,5 +74,35 @@ public class ReservationService {
 
     }
 
+    //9.2 내 예약 목록
+    @Transactional(readOnly = true)
+    public ApiResponse<PageResponse<MyReservationListResponse>> findMyReservations(Long userId, Status status, Pageable pageable){
+        //내 예약이 존재 하는지 먼저 확인, 없으면 일단 401 UNAUTHORIZED
+        Users user = this.userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        //status가 null인경우
+        //if(status == null)
+            //throw new BusinessException(ErrorCode.INVALID_INPUT);
+
+        //로직
+
+        //1.페이지size만큼 reservation 가져오기
+        Page<Reservation> allByUserId = this.reservationRepository.findAllByUserId(userId, status, pageable);
+        //2.SET을 만들어서 사용되는 Reservaion_id 저장하기)
+        List<Reservation> reservationList = allByUserId.getContent();
+        Set<Long> idSet = new HashSet<>();
+        //리뷰 조회를 위한 set
+        for(Reservation reservation: reservationList){
+            idSet.add(reservation.getId());
+        }
+        //리뷰가 있는 id들을 모아놓은 List
+        Set<Long> hasReviewList = this.reviewRepository.findByReservationId(idSet);
+
+        Page<MyReservationListResponse> dto = allByUserId.map(reservation ->
+                MyReservationListResponse.from(reservation,hasReviewList.contains(reservation.getId())));
+       return ApiResponse.page(dto);
+
+
+    }
 
 }
