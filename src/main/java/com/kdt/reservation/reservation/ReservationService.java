@@ -28,6 +28,10 @@ public class ReservationService {
         //방이 없는경우 ROOM_NOT_FOUND 예외처리 (예외 아직 미구현상태, 이름 수정 필요)
         Room room = this.roomRepository.findById(request.roomId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+        //삭제된 방인경우 deleted_at 값이 존재하므로 null이 아니면 ROOM_NOT_AVAILABLE
+        if (room.getDeleted_at() !=null)
+            throw new BusinessException(ErrorCode.ROOM_NOT_AVAILABLE);
+
         //예약인원이 최대 수용인원보다 많을경우
         if(request.guestCount()>room.getMax_capacity())
             throw new BusinessException(ErrorCode.GUEST_COUNT_EXCEEDED);
@@ -48,18 +52,12 @@ public class ReservationService {
                 + room.getExtra_person_fee()*extraPerson*nights;
         //반환시켜줘야할 DTO 내용
         //reservationId, status, totalPrice,nights,paymentDeadline
-        Reservation reservation = new Reservation();
+
         //User
         Users user = this.userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
-        reservation.setUser(user);
-        reservation.setRoom(room);
-        reservation.setGuest_count(request.guestCount());
-        reservation.setTotal_price(totalprice);
-        reservation.setStatus(Status.PENDING);
-        reservation.setCheck_in_date(request.checkInDate());
-        reservation.setCheck_out_date(request.checkOutDate());
-        reservation.setCreated_at(createtime);
+        Reservation reservation = new Reservation(user,room,request.guestCount(),totalprice,Status.PENDING,
+                request.checkInDate(),request.checkOutDate(),createtime);
 
         Reservation saved = this.reservationRepository.save(reservation);
 
