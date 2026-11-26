@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Set;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
     @Query(
@@ -41,4 +42,15 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             group by r.accommodation.id
             """)
     List<ReviewSummary> findSummariesByAccommodationIds(@Param("accommodationIds") List<Long> accommodationIds);
+
+    // reservation/ReservatoinService.java API-9.2-내 페이지조회 에 사용
+    //r.reservatoin.id =:reservatoinId하면 단일 데이터 조회
+    @Query("""
+            SELECT r.reservation.id
+            FROM Review r
+            WHERE r.reservation.id  in :reservationIds
+            AND r.deleted_at is null
+            """)
+    Set<Long> findByReservationId(@Param("reservationIds") Set<Long> reservationId);
+
 }
