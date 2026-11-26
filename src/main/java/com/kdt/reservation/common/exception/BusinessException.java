@@ -1,0 +1,15 @@
+package com.kdt.reservation.common.exception;
+
+import lombok.Getter;
+
+// 서비스에서 ErrorCode를 담아 던지는 비즈니스 예외
+@Getter
+public class BusinessException extends RuntimeException {
+
+    private final ErrorCode errorCode;
+
+    public BusinessException(ErrorCode errorCode) {
+        super(errorCode.getMessage());
+        this.errorCode = errorCode;
+    }
+}
