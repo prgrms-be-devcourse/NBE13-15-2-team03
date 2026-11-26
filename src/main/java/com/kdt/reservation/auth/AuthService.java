@@ -5,6 +5,8 @@ import com.kdt.reservation.auth.dto.CreateUserResponse;
 import com.kdt.reservation.auth.dto.LoginRequest;
 import com.kdt.reservation.auth.dto.LoginResponse;
 import com.kdt.reservation.auth.jwt.JwtProvider;
+import com.kdt.reservation.common.exception.BusinessException;
+import com.kdt.reservation.common.exception.ErrorCode;
 import com.kdt.reservation.user.Role;
 import com.kdt.reservation.user.UserRepository;
 import com.kdt.reservation.user.Users;
@@ -27,16 +29,14 @@ public class AuthService {
     @Transactional
     public CreateUserResponse signUp(CreateUserRequest request){
         if (request.role() == Role.ADMIN){
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ADMIN 으로는 가입할 수 없습니다");
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
 
         if (userRepository.existsByLoginId(request.loginId())) {
-            // TODO 공통 예외(DUPLICATE_LOGIN_ID, 409)가 나오면 교체
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 사용 중인 아이디입니다.");
+            throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID);
         }
         if (userRepository.existsByPhone(request.phone())) {
-            // TODO 공통 예외(DUPLICATE_PHONE, 409)가 나오면 교체
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 사용 중인 전화번호입니다.");
+            throw new BusinessException(ErrorCode.DUPLICATE_PHONE);
         }
 
         //  비밀번호 암호화 후 회원 객체 만들기
@@ -86,9 +86,8 @@ public class AuthService {
     }
 
     // 로그인 실패 예외. 두 군데서 써서 메서드로 뺐다
-    // TODO 공통 예외(LOGIN_FAILED, 401)가 나오면 교체
-    private ResponseStatusException loginFailed() {
-        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다.");
+    private BusinessException loginFailed() {
+        return new BusinessException(ErrorCode.LOGIN_FAILED);
     }
 
 }
