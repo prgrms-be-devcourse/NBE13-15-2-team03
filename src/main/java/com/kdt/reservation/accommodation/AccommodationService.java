@@ -23,30 +23,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 숙소 관련 "실제 처리 규칙"을 담는 곳.
- *
- * [역할 나누기] 요청은 Controller -> Service -> Repository -> DB 순서로 흘러간다.
- * - Controller : 주소(URL)와 연결되는 입구. 요청을 받고 응답 모양으로 감싸서 돌려준다.
- * - Service    : 규칙을 처리한다. (없으면 에러, 삭제된 숙소는 제외 등)
- * - Repository : DB 에서 꺼내고 저장한다.
- * 이렇게 나누면 "규칙을 고칠 때는 Service 만" 보면 되어 찾기 쉽다.
- *
- * [@Service 를 붙인 이유]
- * 스프링에게 "이 클래스를 직접 만들어서 관리해 달라"고 알리는 표시다.
- * 이 표시가 있어야 Controller 가 이 클래스를 넘겨받아 쓸 수 있다.
- *
- * [@RequiredArgsConstructor 를 붙인 이유]
- * 아래 final 필드들을 받는 생성자를 롬복이 자동으로 만들어 준다.
- * 스프링은 그 생성자를 보고 필요한 레포지토리를 알아서 넣어 준다. (이것을 "의존성 주입"이라고 한다)
- * 그래서 new AccommodationRepository() 같은 코드를 직접 쓰지 않는다.
- */
 @Service
 @RequiredArgsConstructor
 public class AccommodationService {
-
-    // final: 한 번 넣어 주면 바뀌지 않는다는 뜻. 실수로 다른 것으로 바꿔치기하는 일을 막는다.
     private final AccommodationRepository accommodationRepository;
+
+    // 아래는 숙소 상세 조회(#27)를 위해 추가한 것들이다.
+    // - final: 한 번 넣어 주면 바뀌지 않는다는 뜻. 실수로 다른 것으로 바꿔치기하는 일을 막는다.
+    // - 값은 스프링이 생성자를 통해 알아서 넣어 준다. (이것을 "의존성 주입"이라고 한다)
+    //   그래서 new AccommodationImageRepository() 같은 코드를 직접 쓰지 않는다.
     private final AccommodationImageRepository accommodationImageRepository;
     private final AccommodationFeatureRepository accommodationFeatureRepository;
     // 숙소 상세에는 객실 정보도 들어가므로 객실 쪽 레포지토리도 넘겨받아 쓴다.
@@ -60,6 +45,12 @@ public class AccommodationService {
 
     /**
      * 숙소 상세 조회. (명세 6.2, 이슈 #27)
+     *
+     * [이 메서드가 서비스에 있는 이유] 요청은 Controller -> Service -> Repository -> DB 순서로 흘러간다.
+     * - Controller : 주소(URL)와 연결되는 입구. 요청을 받고 응답 모양으로 감싸서 돌려준다.
+     * - Service    : 규칙을 처리한다. (없으면 에러, 삭제된 숙소는 제외 등)  <- 이 메서드
+     * - Repository : DB 에서 꺼내고 저장한다.
+     * 이렇게 나누면 "규칙을 고칠 때는 Service 만" 보면 되어 찾기 쉽다.
      *
      * [@Transactional(readOnly = true) 를 붙인 이유]
      * - @Transactional : 이 메서드가 끝날 때까지 DB 연결을 하나로 묶어 유지한다.

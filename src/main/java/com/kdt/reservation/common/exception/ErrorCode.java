@@ -18,6 +18,7 @@ public enum ErrorCode {
     DUPLICATE_PHONE(HttpStatus.CONFLICT, "이미 사용 중인 전화번호입니다."),
     PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다."),
     PASSWORD_NOT_SET(HttpStatus.BAD_REQUEST, "비밀번호가 설정되지 않은 소셜 로그인 계정입니다."),
+    USER_NOT_FOUND(HttpStatus.UNAUTHORIZED,"사용자를 찾을 수 없습니다"),
     USER_HAS_ACTIVE_RESERVATION(HttpStatus.CONFLICT, "체크아웃 전인 예약이 있어 탈퇴할 수 없습니다."),
 
     INVALID_DATE_RANGE(HttpStatus.BAD_REQUEST, "날짜 범위가 올바르지 않습니다."),
@@ -42,6 +43,7 @@ public enum ErrorCode {
     INVALID_POINT_AMOUNT(HttpStatus.BAD_REQUEST, "사용 포인트가 올바르지 않습니다."),
     RESERVATION_NOT_PAYABLE(HttpStatus.CONFLICT, "결제할 수 없는 예약입니다."),
     INSUFFICIENT_POINT(HttpStatus.CONFLICT, "보유 포인트가 부족합니다."),
+    POINT_HISTORY_ALREADY_EXISTS(HttpStatus.INTERNAL_SERVER_ERROR, "포인트 처리 중 오류가 발생했습니다."),
 
     REVIEW_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "리뷰를 작성할 수 없는 예약입니다."),
     NOT_REVIEW_AUTHOR(HttpStatus.FORBIDDEN, "본인의 리뷰가 아닙니다."),

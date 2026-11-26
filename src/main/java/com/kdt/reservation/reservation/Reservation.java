@@ -45,9 +45,8 @@ public class Reservation {
     @Column(name = "cancelled_at")
     private LocalDateTime cancelled_at;
 
-    public Reservation(Users user, Room room, int guest_count,
-                       int total_price, Status status, LocalDate check_in_date,
-                       LocalDate check_out_date, LocalDateTime created_at) {
+    public Reservation(Users user, Room room, int guest_count, int total_price, Status status,
+                       LocalDate check_in_date, LocalDate check_out_date, LocalDateTime created_at) {
         this.user = user;
         this.room = room;
         this.guest_count = guest_count;
