@@ -161,6 +161,7 @@
 | 결제 | 409 | `RESERVATION_NOT_PAYABLE` | 예약이 PENDING이 아님 (이미 결제, 취소, 만료) |
 | 결제 | 409 | `INSUFFICIENT_POINT` | 보유 포인트 부족 |
 | 결제 | 500 | `POINT_HISTORY_ALREADY_EXISTS` | 같은 예약에 같은 유형(`USE`, `EARN`, `REFUND`)의 포인트 내역이 이미 있음. 서버 오류이며 정상 흐름에서는 나오지 않는다 |
+| 결제 | 500 | `POINT_NOT_FOUND` | 회원의 `POINT` 행이 없음. 가입 시 만들므로 서버 오류이며 정상 흐름에서는 나오지 않는다 |
 | 리뷰 | 400 | `REVIEW_NOT_ALLOWED` | 예약이 CONFIRMED가 아니거나 체크아웃 전 |
 | 리뷰 | 403 | `NOT_REVIEW_AUTHOR` | 다른 사람의 리뷰 |
 | 리뷰 | 404 | `REVIEW_NOT_FOUND` | 리뷰가 없거나 삭제됨 |
@@ -1395,7 +1396,7 @@ PENDING 예약을 결제하고 예약을 확정한다.
 
 포인트를 한 번도 받은 적 없는 사용자는 `balance`가 0이다.
 
-**에러**: 401 `UNAUTHORIZED`
+**에러**: 401 `UNAUTHORIZED`, 500 `POINT_NOT_FOUND`
 
 ### 11.2 포인트 내역 조회
 
