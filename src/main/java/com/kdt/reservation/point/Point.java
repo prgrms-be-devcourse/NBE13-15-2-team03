@@ -34,4 +34,8 @@ public class Point {
     @LastModifiedDate
     @Column(name = "updated_at")
     private LocalDateTime updated_at;
+
+    public Point(Users user) {
+        this.user = user;
+    }
 }
