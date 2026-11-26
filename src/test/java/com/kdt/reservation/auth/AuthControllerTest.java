@@ -10,21 +10,26 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.kdt.reservation.auth.dto.CreateUserRequest;
 import com.kdt.reservation.auth.dto.CreateUserResponse;
+import com.kdt.reservation.auth.dto.LoginRequest;
+import com.kdt.reservation.auth.dto.LoginResponse;
+import com.kdt.reservation.common.exception.BusinessException;   
+import com.kdt.reservation.common.exception.ErrorCode;           
+import com.kdt.reservation.user.Role;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
- * AuthController 테스트 (회원가입)
+ * AuthController 테스트 (회원가입, 로그인)
  *
- * @WebMvcTest(AuthController.class): 컨트롤러 하나만. 서비스, DB, 다른 컨트롤러는 안 띄운다
+ * @WebMvcTest(AuthController.class): 컨트롤러 하나만 띄운다. 서비스, DB, 다른 컨트롤러는 안 띄운다
+ *                                    단, 공통 예외 처리기(GlobalExceptionHandler)는 같이 뜬다
+ *                                    → 에러 응답의 "error" 코드까지 검사할 수 있다
  * @AutoConfigureMockMvc(addFilters = false): 시큐리티 필터를 끈다. 여기선 컨트롤러 동작만 검사하기 위해서
  */
 @WebMvcTest(AuthController.class)
@@ -55,30 +60,28 @@ class AuthControllerTest {
     @Test
     @DisplayName("회원가입 성공 시 201과 userId를 돌려준다")
     void signUp_success() throws Exception {
-        // given: 서비스가 userId 1 을 돌려준다고 정함
         given(authService.signUp(any(CreateUserRequest.class)))
                 .willReturn(new CreateUserResponse(1L));
 
-        // when & then: 요청을 보내고 응답을 검사
         mockMvc.perform(post("/api/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_BODY))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value(201))        // 공통 포맷의 status
-                .andExpect(jsonPath("$.data.userId").value(1));    // data 안의 userId
+                .andExpect(jsonPath("$.status").value(201))
+                .andExpect(jsonPath("$.data.userId").value(1));
     }
 
     @Test
-    @DisplayName("아이디가 중복이면 409를 돌려준다")
+    @DisplayName("아이디가 중복이면 409와 DUPLICATE_LOGIN_ID를 돌려준다")
     void signUp_duplicateLoginId() throws Exception {
-        // given: 서비스가 중복 예외를 던진다고 정함
         given(authService.signUp(any(CreateUserRequest.class)))
-                .willThrow(new ResponseStatusException(HttpStatus.CONFLICT, "이미 사용 중인 아이디입니다."));
+                .willThrow(new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID));     
 
         mockMvc.perform(post("/api/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_BODY))
-                .andExpect(status().isConflict());             // 409
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("DUPLICATE_LOGIN_ID"));         
     }
 
     @Test
@@ -89,9 +92,9 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isBadRequest());           // 400
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_INPUT"));              
 
-        // @Valid 에서 막혔으니 서비스는 한 번도 호출되면 안 된다
         verify(authService, never()).signUp(any());
     }
 
@@ -103,7 +106,8 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_INPUT"));              
 
         verify(authService, never()).signUp(any());
     }
@@ -116,8 +120,56 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_INPUT"));              
 
         verify(authService, never()).signUp(any());
+    }
+
+    @Test
+    @DisplayName("로그인 성공 시 200과 토큰을 돌려준다")
+    void login_success() throws Exception {
+        given(authService.login(any(LoginRequest.class)))
+                .willReturn(new LoginResponse("Bearer", "access-token", 1800, "refresh-token",
+                        new LoginResponse.UserInfo(1L, "여행자", Role.GUEST)));
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "loginId": "traveler01", "password": "pass1234word" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.data.user.role").value("GUEST"));
+    }
+
+    @Test
+    @DisplayName("아이디 또는 비밀번호가 틀리면 401과 LOGIN_FAILED를 돌려준다")
+    void login_fail() throws Exception {
+        given(authService.login(any(LoginRequest.class)))
+                .willThrow(new BusinessException(ErrorCode.LOGIN_FAILED));           // ★ 변경
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "loginId": "traveler01", "password": "wrong1234" }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("LOGIN_FAILED"));               
+    }
+
+    @Test
+    @DisplayName("아이디나 비밀번호가 비어 있으면 400을 돌려준다")
+    void login_blank() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "loginId": "", "password": "" }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_INPUT"));              
+
+        verify(authService, never()).login(any());
     }
 }
