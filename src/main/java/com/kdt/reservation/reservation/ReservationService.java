@@ -63,7 +63,7 @@ public class ReservationService {
 
         //User
         Users user = this.userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Reservation reservation = new Reservation(user,room,request.guestCount(),totalprice,Status.PENDING,
                 request.checkInDate(),request.checkOutDate(),createtime);
 
@@ -79,7 +79,7 @@ public class ReservationService {
     public ApiResponse<PageResponse<MyReservationListResponse>> findMyReservations(Long userId, Status status, Pageable pageable){
         //내 예약이 존재 하는지 먼저 확인, 없으면 일단 401 UNAUTHORIZED
         Users user = this.userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         //status가 null인경우
         //if(status == null)
             //throw new BusinessException(ErrorCode.INVALID_INPUT);
