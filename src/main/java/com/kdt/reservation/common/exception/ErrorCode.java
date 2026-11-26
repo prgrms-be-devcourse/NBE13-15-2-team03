@@ -44,6 +44,7 @@ public enum ErrorCode {
     RESERVATION_NOT_PAYABLE(HttpStatus.CONFLICT, "결제할 수 없는 예약입니다."),
     INSUFFICIENT_POINT(HttpStatus.CONFLICT, "보유 포인트가 부족합니다."),
     POINT_HISTORY_ALREADY_EXISTS(HttpStatus.INTERNAL_SERVER_ERROR, "포인트 처리 중 오류가 발생했습니다."),
+    POINT_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "포인트 처리 중 오류가 발생했습니다."),
 
     REVIEW_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "리뷰를 작성할 수 없는 예약입니다."),
     NOT_REVIEW_AUTHOR(HttpStatus.FORBIDDEN, "본인의 리뷰가 아닙니다."),

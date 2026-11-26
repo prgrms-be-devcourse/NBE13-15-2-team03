@@ -20,14 +20,19 @@ public class PointService {
     private final PointHistoryRepository pointHistoryRepository;
     private final EntityManager entityManager;
 
+    // 가입한 유저의 포인트를 잔액 0으로 만든다
+    @Transactional
+    public Point createDefault(Users user) {
+        return this.pointRepository.save(new Point(user));
+    }
+
     @Transactional
     public Point use(Reservation reservation, int amount) {
         if (amount < 0 || amount > reservation.getTotal_price()) {
             throw new BusinessException(ErrorCode.INVALID_POINT_AMOUNT);
         }
 
-        Point point = this.findWithLock(reservation.getUser().getId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.INSUFFICIENT_POINT));
+        Point point = this.getWithLock(reservation.getUser().getId());
 
         if (point.getBalance() < amount) {
             throw new BusinessException(ErrorCode.INSUFFICIENT_POINT);
@@ -42,7 +47,7 @@ public class PointService {
     // 결제 금액의 5%를 적립한다
     @Transactional
     public Point earn(Reservation reservation) {
-        Point point = this.getOrCreateWithLock(reservation.getUser());
+        Point point = this.getWithLock(reservation.getUser().getId());
 
         int usedPoint = this.pointHistoryRepository
                 .findByReservationIdAndPointType(reservation.getId(), PointType.USE)
@@ -62,7 +67,7 @@ public class PointService {
     // 예약에 사용한 포인트를 돌려준다
     @Transactional
     public Point refund(Reservation reservation) {
-        Point point = this.getOrCreateWithLock(reservation.getUser());
+        Point point = this.getWithLock(reservation.getUser().getId());
 
         int amount = this.pointHistoryRepository
                 .findByReservationIdAndPointType(reservation.getId(), PointType.USE)
@@ -86,11 +91,10 @@ public class PointService {
         this.pointHistoryRepository.save(new PointHistory(reservation, pointType, amount));
     }
 
-    // 유저의 포인트를 락을 걸어 조회하고, 없으면 잔액 0으로 만든다
-    // 가입 시 생성 부분 추가 후 삭제 예정
-    private Point getOrCreateWithLock(Users user) {
-        return this.findWithLock(user.getId())
-                .orElseGet(() -> this.pointRepository.save(new Point(user)));
+    // 유저의 포인트를 락을 걸어 조회하고, 없으면 예외를 던진다
+    private Point getWithLock(Long userId) {
+        return this.findWithLock(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POINT_NOT_FOUND));
     }
 
     // 유저의 포인트를 락을 걸어 조회한다
