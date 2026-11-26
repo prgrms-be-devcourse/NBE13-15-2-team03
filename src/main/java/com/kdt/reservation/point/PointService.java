@@ -4,9 +4,12 @@ import com.kdt.reservation.common.exception.BusinessException;
 import com.kdt.reservation.common.exception.ErrorCode;
 import com.kdt.reservation.reservation.Reservation;
 import com.kdt.reservation.user.Users;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -15,15 +18,15 @@ public class PointService {
 
     private final PointRepository pointRepository;
     private final PointHistoryRepository pointHistoryRepository;
-
+    private final EntityManager entityManager;
 
     @Transactional
     public Point use(Reservation reservation, int amount) {
-        if (amount < 0) {
+        if (amount < 0 || amount > reservation.getTotal_price()) {
             throw new BusinessException(ErrorCode.INVALID_POINT_AMOUNT);
         }
 
-        Point point = this.pointRepository.findWithLockByUserId(reservation.getUser().getId())
+        Point point = this.findWithLock(reservation.getUser().getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INSUFFICIENT_POINT));
 
         if (point.getBalance() < amount) {
@@ -86,7 +89,15 @@ public class PointService {
     // 유저의 포인트를 락을 걸어 조회하고, 없으면 잔액 0으로 만든다
     // 가입 시 생성 부분 추가 후 삭제 예정
     private Point getOrCreateWithLock(Users user) {
-        return this.pointRepository.findWithLockByUserId(user.getId())
+        return this.findWithLock(user.getId())
                 .orElseGet(() -> this.pointRepository.save(new Point(user)));
+    }
+
+    // 유저의 포인트를 락을 걸어 조회한다
+    // 같은 트랜잭션에서 락 없이 먼저 조회한 엔티티가 있으면 락 조회도 그 엔티티(이전 잔액)를 돌려주므로,
+    // 엔티티를 영속성 컨텍스트에서 떼어낸 뒤 다시 조회해 다른 트랜잭션이 커밋한 잔액을 읽는다
+    private Optional<Point> findWithLock(Long userId) {
+        this.pointRepository.findWithLockByUserId(userId).ifPresent(this.entityManager::detach);
+        return this.pointRepository.findWithLockByUserId(userId);
     }
 }
