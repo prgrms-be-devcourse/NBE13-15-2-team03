@@ -1,6 +1,7 @@
 package com.kdt.reservation.reservation;
 
 import com.kdt.reservation.common.response.ApiResponse;
+import com.kdt.reservation.common.response.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -23,9 +24,10 @@ public class ReservationController {
     }
     //9.2 나의 예약목록 조회 GET /api/reservations/me
     @GetMapping("/me")
-    public ApiResponse<MyReservationListResponse> getMyReservations(
-            @RequestParam Status status,
-            @RequestParam Pageable pageable,
+    public ApiResponse<PageResponse<MyReservationListResponse>> getMyReservations(
+            //required true라고 하고 내부에서 null처리 로직을 주석 처리 하였습니다
+            @RequestParam(required = true) Status status,
+            Pageable pageable,
             @AuthenticationPrincipal Long userId){
         return this.reservationService.findMyReservations(userId,status,pageable);
     }

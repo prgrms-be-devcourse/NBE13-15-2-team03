@@ -20,17 +20,20 @@ public record MyReservationListResponse(
         LocalDateTime createdAt
 ) {
     public record AccommodationSummary(Long accommodationId, String name){}
-    public static MyReservationListResponse from(Reservation reservation){
+    public static MyReservationListResponse from(Reservation reservation, boolean hasReview){
         return new MyReservationListResponse(
                 reservation.getId(),
                 reservation.getStatus(),
-
+                new AccommodationSummary(reservation.getRoom().getAccommodation().getId(),
+                        reservation.getRoom().getAccommodation().getName()),
+                new RoomSummary(reservation.getRoom().getId(),
+                        reservation.getRoom().getName()),
                 reservation.getCheck_in_date(),
                 reservation.getCheck_out_date(),
                 reservation.getGuest_count(),
                 reservation.getTotal_price(),
-
+                hasReview,
                 reservation.getCreated_at()
-        )
+        );
     }
 }
