@@ -43,6 +43,7 @@
 | 22 | 숙소·객실 이미지 | 각각 최대 10장. ERD에 순서나 대표 컬럼이 없으므로 id 오름차순 첫 번째 이미지를 대표(`thumbnailUrl`)로 쓴다. 수정은 목록 전체 교체(12.4와 같은 방식) | 6, 7, 8 | B |
 | 23 | 편의시설 필터와 식별자 | 요청과 필터는 `featureId`(숫자)로 받는다. 숙소 목록은 숙소 편의시설로만 거르고, 여러 개를 보내면 모두 가진 숙소만(AND) 포함한다. 객실용 id를 보내면 400 `INVALID_FEATURE`. 수정은 목록 전체 교체 | 6.1, 7, 8 | B |
 | 24 | 예약당 포인트 내역 | 한 예약에 `USE`, `EARN`, `REFUND` 내역은 유형별로 최대 1건이다. 같은 유형을 다시 만들려 하면 500 `POINT_HISTORY_ALREADY_EXISTS` | 9.4, 10.1, 11 | D |
+| 25 | POINT 행 생성 시점 | 회원가입 시 잔액 0인 `POINT` 행을 회원 저장과 같은 트랜잭션에서 만든다. 포인트 사용·적립·환불 때 행이 없으면 500 `POINT_NOT_FOUND` | 3.1, 9.4, 10.1, 11 | D |
 
 ## 1. 공통
 
@@ -161,6 +162,7 @@
 | 결제 | 409 | `RESERVATION_NOT_PAYABLE` | 예약이 PENDING이 아님 (이미 결제, 취소, 만료) |
 | 결제 | 409 | `INSUFFICIENT_POINT` | 보유 포인트 부족 |
 | 결제 | 500 | `POINT_HISTORY_ALREADY_EXISTS` | 같은 예약에 같은 유형(`USE`, `EARN`, `REFUND`)의 포인트 내역이 이미 있음. 서버 오류이며 정상 흐름에서는 나오지 않는다 |
+| 결제 | 500 | `POINT_NOT_FOUND` | 회원의 `POINT` 행이 없음. 가입 시 만들므로 서버 오류이며 정상 흐름에서는 나오지 않는다 |
 | 리뷰 | 400 | `REVIEW_NOT_ALLOWED` | 예약이 CONFIRMED가 아니거나 체크아웃 전 |
 | 리뷰 | 403 | `NOT_REVIEW_AUTHOR` | 다른 사람의 리뷰 |
 | 리뷰 | 404 | `REVIEW_NOT_FOUND` | 리뷰가 없거나 삭제됨 |
@@ -270,6 +272,8 @@
 ```
 
 비밀번호는 BCrypt 해시로 저장하고 어떤 응답에도 담지 않는다.
+
+가입과 함께 잔액 0인 `POINT` 행을 만든다. 회원 저장과 같은 트랜잭션이라 포인트 생성에 실패하면 가입도 취소된다.
 
 **에러**: 400 `INVALID_INPUT`, 409 `DUPLICATE_LOGIN_ID`, 409 `DUPLICATE_PHONE`
 
@@ -1236,7 +1240,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 }
 ```
 
-**에러**: 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_ALREADY_CANCELLED`, 409 `CANCEL_PERIOD_EXPIRED`, 500 `POINT_HISTORY_ALREADY_EXISTS`
+**에러**: 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_ALREADY_CANCELLED`, 409 `CANCEL_PERIOD_EXPIRED`, 500 `POINT_HISTORY_ALREADY_EXISTS`, 500 `POINT_NOT_FOUND`
 
 ### 9.5 숙소의 예약 목록
 
@@ -1333,7 +1337,7 @@ PENDING 예약을 결제하고 예약을 확정한다.
 
 `usedPoint`와 `earnedPoint`는 `PAYMENT`에 컬럼이 없어 이 예약의 `POINT_HISTORY`에서 읽는다(가정 15).
 
-**에러**: 400 `INVALID_INPUT`, 400 `INVALID_POINT_AMOUNT`, 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_NOT_PAYABLE`, 409 `INSUFFICIENT_POINT`, 500 `POINT_HISTORY_ALREADY_EXISTS`
+**에러**: 400 `INVALID_INPUT`, 400 `INVALID_POINT_AMOUNT`, 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_NOT_PAYABLE`, 409 `INSUFFICIENT_POINT`, 500 `POINT_HISTORY_ALREADY_EXISTS`, 500 `POINT_NOT_FOUND`
 
 ### 10.2 결제 내역 조회
 
