@@ -51,7 +51,7 @@ public class ReservationService {
         Reservation reservation = new Reservation();
         //User
         Users user = this.userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         reservation.setUser(user);
         reservation.setRoom(room);
         reservation.setGuest_count(request.guestCount());
