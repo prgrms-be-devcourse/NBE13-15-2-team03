@@ -1,6 +1,6 @@
 # 숙소 예약 서비스 API 명세
 
-- 작성일: 2026-11-23 (최종 수정 2026-11-24, 확정 ERD와 팀 결정 반영)
+- 작성일: 2026-11-23 (최종 수정 2026-11-26, 확정 ERD와 팀 결정 반영 Refresh 토큰 쿠키 전달 반영)
 - 기준 문서: `docs/erd.md`, `db/01_schema.sql` (테이블 15개: USERS, SOCIAL_USER, ACCOMMODATION, ACCOMMODATION_IMAGE, ROOM, ROOM_IMAGE, FEATURE, ACCOMMODATION_FEATURE, ROOM_FEATURE, RESERVATION, PAYMENT, POINT, POINT_HISTORY, REVIEW, REVIEW_IMAGE)
 - 범위: 엔드포인트 36개 (JSON API 34개, Spring Security가 처리하는 소셜 로그인 경로 2개)
 - 명세 작성: 김진형
@@ -12,7 +12,7 @@
 
 | # | 항목 | 이 문서의 가정 | 관련 절 |
 |---|---|---|---|
-| 2 | 토큰 전달과 만료 | 응답 본문으로 전달. Access 30분, Refresh 14일 | 3.2, 3.3 |
+| 2 | 토큰 전달과 만료 | Access 토큰은 응답 본문(`accessToken`)으로, Refresh 토큰은 `Set-Cookie` 헤더의 HttpOnly 쿠키로 전달한다. 쿠키 이름 `refreshToken`, `HttpOnly`, `SameSite=Strict`, `Path=/api/auth`, `Max-Age`는 Refresh 수명. `Secure`는 배포(https) 환경에서만 켠다. Access 30분, Refresh 14일 | 3.2~3.4 | A |
 | 5 | 소셜 로그인 콜백 응답 | 리다이렉트 없이 JSON 본문으로 토큰 전달 | 4.2 |
 | 6 | 가입 입력 규칙 | 아이디 영문 소문자·숫자 4~20자, 비밀번호 8~64자(영문과 숫자 포함) | 3.1 |
 | 7 | enum 값 | `accommodation.type`은 확정(11/23 팀 합의). `room.grade`, `payment.method`는 ERD에 임시로 표기돼 있다. 값은 1.6에 있다 | 1.6 |
@@ -292,7 +292,6 @@
 | `tokenType` | string | 항상 `Bearer` |
 | `accessToken` | string | API 호출에 쓰는 JWT |
 | `accessTokenExpiresIn` | int | Access 토큰 만료까지 남은 초 |
-| `refreshToken` | string | 재발급에 쓰는 토큰 |
 | `user.userId` | long | 사용자 ID |
 | `user.nickname` | string | 닉네임 |
 | `user.role` | enum | `GUEST`, `HOST`, `ADMIN` |
@@ -304,10 +303,14 @@
     "tokenType": "Bearer",
     "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
     "accessTokenExpiresIn": 1800,
-    "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
     "user": { "userId": 7, "nickname": "여행자", "role": "GUEST" }
   }
 }
+```
+**응답 헤더**: Refresh 토큰은 본문이 아니라 쿠키로 전달한다(0-1의 2번).
+
+```
+Set-Cookie: refreshToken=eyJhbGciOiJIUzI1NiJ9...; Path=/api/auth; Max-Age=1209600; HttpOnly; SameSite=Strict
 ```
 
 아이디와 비밀번호 중 어느 쪽이 틀렸는지는 알려주지 않는다.
@@ -320,11 +323,7 @@
 
 Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기존 Refresh 토큰은 그 즉시 폐기한다.
 
-**요청 본문**
-
-| 필드 | 타입 | 필수 |
-|---|---|---|
-| `refreshToken` | string | 필수 |
+**요청**: 본문은 없다. 로그인(또는 직전 재발급) 때 받은 `refreshToken` 쿠키가 브라우저에서 자동으로 전송된다.
 
 **응답 200** `data`: 3.2와 같은 구조에서 `user`를 뺀 것.
 
@@ -334,13 +333,19 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
   "data": {
     "tokenType": "Bearer",
     "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
-    "accessTokenExpiresIn": 1800,
-    "refreshToken": "eyJhbGciOiJIUzI1NiJ9..."
+    "accessTokenExpiresIn": 1800
   }
 }
 ```
 
-**에러**: 400 `INVALID_INPUT`, 401 `INVALID_REFRESH_TOKEN`
+**응답 헤더**: 새 Refresh 토큰을 쿠키로 다시 보낸다. 기존 쿠키를 덮어쓴다.
+
+```
+Set-Cookie: refreshToken=eyJhbGciOiJIUzI1NiJ9...; Path=/api/auth; Max-Age=1209600; HttpOnly; SameSite=Strict
+```
+
+**에러**: 401 `INVALID_REFRESH_TOKEN` (쿠키 없음, 위조·만료, 이미 재발급에 쓴 토큰, 로그아웃한 토큰, 탈퇴한 회원)
+
 
 ### 3.4 로그아웃
 
@@ -348,7 +353,11 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 
 서버에 저장된 그 사용자의 Refresh 토큰을 삭제한다. 요청 본문은 없다. 이미 발급된 Access 토큰은 만료 시각까지 유효하다.
 
-**응답 200**: `data`는 null.
+**응답 200**: `data`는 null. 응답 헤더로 `refreshToken` 쿠키를 지운다.
+
+```
+Set-Cookie: refreshToken=; Path=/api/auth; Max-Age=0; HttpOnly; SameSite=Strict
+```
 
 **에러**: 401 `UNAUTHORIZED`
 
