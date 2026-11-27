@@ -3,6 +3,7 @@ package com.kdt.reservation.point;
 import com.kdt.reservation.common.exception.BusinessException;
 import com.kdt.reservation.common.exception.ErrorCode;
 import com.kdt.reservation.reservation.Reservation;
+import com.kdt.reservation.user.UserService;
 import com.kdt.reservation.user.Users;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ public class PointService {
 
     private final PointRepository pointRepository;
     private final PointHistoryRepository pointHistoryRepository;
+    private final UserService userService;
     private final EntityManager entityManager;
 
     @Transactional
@@ -99,5 +101,15 @@ public class PointService {
     private Optional<Point> findWithLock(Long userId) {
         this.pointRepository.findWithLockByUserId(userId).ifPresent(this.entityManager::detach);
         return this.pointRepository.findWithLockByUserId(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public PointResponse getMyPoint(Long userId) {
+        this.userService.findActiveUser(userId);
+
+        Point point = this.pointRepository.findByUserId(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POINT_NOT_FOUND));
+
+        return new PointResponse(point.getBalance());
     }
 }
