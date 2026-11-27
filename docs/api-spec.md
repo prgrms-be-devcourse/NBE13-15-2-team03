@@ -1399,7 +1399,7 @@ PENDING 예약을 결제하고 예약을 확정한다.
 
 포인트를 한 번도 받은 적 없는 사용자는 `balance`가 0이다.
 
-**에러**: 401 `UNAUTHORIZED`
+**에러**: 401 `UNAUTHORIZED`, 500 `POINT_NOT_FOUND`
 
 ### 11.2 포인트 내역 조회
 
