@@ -54,6 +54,7 @@ public class SecurityConfig {
                                 "/api/accommodations/*",
                                 "/api/accommodations/*/reserved-dates",
                                 "/api/accommodations/*/reviews").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/features").permitAll()
                         // 숙소 등록·수정·삭제, 객실 등록·수정·삭제
                         .requestMatchers("/api/accommodations/**", "/api/rooms/**").hasRole("HOST")
 
