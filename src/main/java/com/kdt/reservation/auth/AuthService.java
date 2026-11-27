@@ -4,6 +4,7 @@ import com.kdt.reservation.auth.dto.*;
 import com.kdt.reservation.auth.jwt.JwtProvider;
 import com.kdt.reservation.common.exception.BusinessException;
 import com.kdt.reservation.common.exception.ErrorCode;
+import com.kdt.reservation.point.PointService;
 import com.kdt.reservation.user.Role;
 import com.kdt.reservation.user.UserRepository;
 import com.kdt.reservation.user.Users;
@@ -23,6 +24,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final RefreshTokenStore refreshTokenStore;
+    private final PointService pointService;
 
     @Transactional
     public CreateUserResponse signUp(CreateUserRequest request){
@@ -48,6 +50,7 @@ public class AuthService {
                 request.role());
 
         Users saved = userRepository.save(user);
+        pointService.createDefault(saved);
 
         return new CreateUserResponse(saved.getId());
     }
