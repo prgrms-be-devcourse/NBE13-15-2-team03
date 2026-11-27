@@ -11,6 +11,7 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 
 import lombok.Getter;
@@ -55,6 +56,7 @@ public class JwtProvider {
     private String createToken(Long userId, Role role, String type, long expireSeconds) {
         Instant now = Instant.now();
         JwtBuilder jwtBuilder = Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(String.valueOf(userId))
                 .claim(CLAIM_TYPE, type)
                 .issuedAt(Date.from(now))
