@@ -1446,7 +1446,7 @@ PENDING 예약을 결제하고 예약을 확정한다.
 }
 ```
 
-**에러**: 400 `INVALID_INPUT`, 401 `UNAUTHORIZED`
+**에러**: 400 `INVALID_INPUT`, 401 `UNAUTHORIZED`, 500 `POINT_NOT_FOUND`
 
 ## 12. 리뷰
 
