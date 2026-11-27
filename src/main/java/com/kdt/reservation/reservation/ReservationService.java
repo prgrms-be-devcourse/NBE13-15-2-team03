@@ -4,10 +4,7 @@ import com.kdt.reservation.common.exception.BusinessException;
 import com.kdt.reservation.common.exception.ErrorCode;
 import com.kdt.reservation.common.response.ApiResponse;
 import com.kdt.reservation.common.response.PageResponse;
-import com.kdt.reservation.payment.Payment;
-
 import com.kdt.reservation.payment.PaymentRepository;
-import com.kdt.reservation.point.PointHistory;
 import com.kdt.reservation.point.PointHistoryRepository;
 import com.kdt.reservation.review.ReviewRepository;
 import com.kdt.reservation.room.Room;
@@ -112,42 +109,42 @@ public class ReservationService {
 
     }
 
-    //9.3 예약 상세 단건조회
-    @Transactional(readOnly = true)
-    public ApiResponse<ReservationResponse> findReservationDetail(Long reservationId,Long userId){
-        //예약자 본인과 그 숙소를 등록한 host만 볼 수 있다.
-
-        //로직
-        //ID(예약아이디)로 찾는 로직
-        //1.주어지는 ID로 예약을 찾는다
-        //1.1없는경우 404 RESERVATION_NOT_FOUND
-        Reservation reservation = this.reservationRepository.findById(reservationId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESERVATION_NOT_FOUND));
-        //2.예약이 존재하는경우 사용자 검증을 진행한다
-
-        //예약내역을 가져오면 사용자를 검증한다
-        //1.사용자가 HOST인지 GUEST인지 확인한다
-        Users user = this.userRepository.findById(userId)
-                .orElseThrow(()->new BusinessException(ErrorCode.USER_NOT_FOUND));
-        //2.사용자가 Guest인 경우 userID와 사용자의 id를 비교한다
-        if(user.getRole().equals("GUEST")){
-            //2.1검증 성공인 경우
-            if(user.getId().equals(userId)){
-
-                this.paymentRepository.findByReservationId(reservationId)
-                        .orElseThrow(()->new BusinessException(ErrorCode.))
-
-                int nights = (int)ChronoUnit.DAYS.between(reservation.getCheck_in_date(),reservation.getCheck_out_date());
-                ReservationResponse.from(reservation,nights,)
-                //반환형태에 맞게 DTO로 포장하여 ApiResponse에 담아 return
-            }
-            //2.2없는경우 403 RESERVATION_ACCESS_DENIED
-            else
-                throw new BusinessException(ErrorCode.RESERVATION_ACCESS_DENIED);
-        }
-        //3.사용자가 Host인 경우 Host가 등록한 숙소목록을 만든다
-        //4.숙소 목록에서 accomodtation_id와 같은 id를 가진 숙소를 찾는다
-        //4.1검증 성공인경우 반환형태에 맞게 DTO로 포장하여 ApiResponse에 담아 return
-        //4.2검증 실패인경우 403 RESERVATION_ACCESS_DENIED
-    }
+//    //9.3 예약 상세 단건조회
+//    @Transactional(readOnly = true)
+//    public ApiResponse<ReservationResponse> findReservationDetail(Long reservationId,Long userId){
+//        //예약자 본인과 그 숙소를 등록한 host만 볼 수 있다.
+//
+//        //로직
+//        //ID(예약아이디)로 찾는 로직
+//        //1.주어지는 ID로 예약을 찾는다
+//        //1.1없는경우 404 RESERVATION_NOT_FOUND
+//        Reservation reservation = this.reservationRepository.findById(reservationId)
+//                .orElseThrow(() -> new BusinessException(ErrorCode.RESERVATION_NOT_FOUND));
+//        //2.예약이 존재하는경우 사용자 검증을 진행한다
+//
+//        //예약내역을 가져오면 사용자를 검증한다
+//        //1.사용자가 HOST인지 GUEST인지 확인한다
+//        Users user = this.userRepository.findById(userId)
+//                .orElseThrow(()->new BusinessException(ErrorCode.USER_NOT_FOUND));
+//        //2.사용자가 Guest인 경우 userID와 사용자의 id를 비교한다
+//        if(user.getRole().equals("GUEST")){
+//            //2.1검증 성공인 경우
+//            if(user.getId().equals(userId)){
+//
+//                this.paymentRepository.findByReservationId(reservationId)
+//                        .orElse(null);
+//
+////                int nights = (int)ChronoUnit.DAYS.between(reservation.getCheck_in_date(),reservation.getCheck_out_date());
+////                ReservationResponse.from(reservation,nights,)
+//                //반환형태에 맞게 DTO로 포장하여 ApiResponse에 담아 return
+//            }
+//            //2.2없는경우 403 RESERVATION_ACCESS_DENIED
+//            else
+//                throw new BusinessException(ErrorCode.RESERVATION_ACCESS_DENIED);
+//        }
+//        //3.사용자가 Host인 경우 Host가 등록한 숙소목록을 만든다
+//        //4.숙소 목록에서 accomodtation_id와 같은 id를 가진 숙소를 찾는다
+//        //4.1검증 성공인경우 반환형태에 맞게 DTO로 포장하여 ApiResponse에 담아 return
+//        //4.2검증 실패인경우 403 RESERVATION_ACCESS_DENIED
+//    }
 }

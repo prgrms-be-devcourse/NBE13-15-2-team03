@@ -4,6 +4,8 @@ import com.kdt.reservation.payment.PayMethod;
 import com.kdt.reservation.payment.PayStatus;
 import com.kdt.reservation.payment.Payment;
 import com.kdt.reservation.point.PointHistory;
+import com.kdt.reservation.reservation.dto.GuestSummary;
+import com.kdt.reservation.reservation.dto.RoomSummary;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
