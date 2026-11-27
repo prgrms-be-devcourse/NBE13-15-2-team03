@@ -1,12 +1,13 @@
 package com.kdt.reservation.user;
 
 import com.kdt.reservation.common.response.ApiResponse;
+import com.kdt.reservation.user.dto.ChangePasswordRequest;
 import com.kdt.reservation.user.dto.GetUserResponse;
+import com.kdt.reservation.user.dto.UpdateUserRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 회원 API (/api/users/me)
@@ -30,5 +31,20 @@ public class UserController {
     @GetMapping
     public ApiResponse<GetUserResponse> getMe(@AuthenticationPrincipal Long userId) {
         return ApiResponse.success(userService.getMe(userId));
+    }
+
+    // 내 정보 수정 (api-spec 5.2). 응답은 수정된 내 정보
+    @PatchMapping
+    public ApiResponse<GetUserResponse> updateMe(@AuthenticationPrincipal Long userId,
+                                                 @Valid @RequestBody UpdateUserRequest request) {
+        return ApiResponse.success(userService.updateMe(userId, request));
+    }
+
+    // 비밀번호 변경 (api-spec 5.3). 응답 data 는 null
+    @PatchMapping("/password")
+    public ApiResponse<Void> changePassword(@AuthenticationPrincipal Long userId,
+                                            @Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(userId, request);
+        return ApiResponse.success();
     }
 }

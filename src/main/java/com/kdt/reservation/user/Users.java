@@ -76,4 +76,33 @@ public class Users {
     public boolean isDeleted() {
         return deleted_at != null;
     }
+
+
+    /**
+     * 내 정보 수정 (api-spec 5.2)
+     * null 인 값은 "수정 안 함"이라 건너뛴다. 보낸 것만 바뀐다.
+     * setter 대신 이 메서드 하나로만 바꾸게 해서, 수정 내용 한눈에 보이게
+     */
+    public void updateProfile(String name, String nickname, String phone, LocalDate birthDate) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (nickname != null) {
+            this.nickname = nickname;
+        }
+        if (phone != null) {
+            this.phone = phone;
+        }
+        if (birthDate != null) {
+            this.birth_date = birthDate;
+        }
+    }
+
+    /**
+     * 비밀번호 변경 (api-spec 5.3)
+     * @param encodedPassword 반드시 passwordEncoder.encode() 한 값을 넘길 것
+     */
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
 }
