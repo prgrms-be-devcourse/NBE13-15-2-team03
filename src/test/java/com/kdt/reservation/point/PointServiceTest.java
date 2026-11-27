@@ -32,8 +32,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-// PointService 테스트 (기본 포인트 생성, 포인트 행이 없는 경우)
-// PointService 테스트 (포인트 잔액 조회)
+// PointService 테스트 (기본 포인트 생성, 포인트 행이 없는 경우, 잔액·내역 조회)
 @ExtendWith(MockitoExtension.class)
 class PointServiceTest {
 
@@ -112,6 +111,9 @@ class PointServiceTest {
         reservation.setTotal_price(100000);
         given(pointRepository.findWithLockByUserId(USER_ID)).willReturn(Optional.empty());
         return reservation;
+    }
+
+    @Test
     @DisplayName("잔액 조회 시 회원의 포인트 잔액을 돌려준다")
     void getMyPoint_success() {
         Point point = new Point(mock(Users.class));
