@@ -1,5 +1,7 @@
 package com.kdt.reservation.reservation;
 
+import com.kdt.reservation.reservation.dto.RoomSummary;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 

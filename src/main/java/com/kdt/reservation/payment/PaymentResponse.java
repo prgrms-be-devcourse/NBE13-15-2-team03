@@ -15,4 +15,17 @@ public record PaymentResponse(
         int earnedPoint,
         LocalDateTime paidAt
 ) {
+    public static PaymentResponse from(Payment payment,int usePoint,int earnedPoint){
+        return new PaymentResponse(
+                payment.getId(),
+                payment.getReservation().getId(),
+                payment.getReservation().getStatus(),
+                payment.getPayMethod(),
+                payment.getPayStatus(),
+                payment.getAmount(),
+                usePoint,
+                earnedPoint,
+                payment.getPaid_at()
+        );
+    }
 }

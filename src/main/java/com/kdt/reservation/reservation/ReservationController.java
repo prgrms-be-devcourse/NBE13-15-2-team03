@@ -31,6 +31,14 @@ public class ReservationController {
             @AuthenticationPrincipal Long userId){
         return this.reservationService.findMyReservations(userId,status,pageable);
     }
+//    //9.3 예약 상세 GET /api/reservations/{id}
+//    @GetMapping("/{id}")
+//    public ApiResponse<ReservationResponse> getReservationDetail(
+//            @PathVariable("id")Long reservationId,
+//            @AuthenticationPrincipal Long userId
+//    ){
+//        return this.reservationService.findReservationDetail(reservationId,userId);
+//    }
 
 
 }

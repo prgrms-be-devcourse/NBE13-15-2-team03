@@ -3,6 +3,7 @@ package com.kdt.reservation.reservation;
 import com.kdt.reservation.common.exception.BusinessException;
 import com.kdt.reservation.common.exception.ErrorCode;
 import com.kdt.reservation.common.response.ApiResponse;
+import com.kdt.reservation.reservation.dto.RoomSummary;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
