@@ -10,4 +10,6 @@ import java.util.Optional;
 public interface PointRepository extends JpaRepository<Point, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Point> findWithLockByUserId(Long userId);
+
+    Optional<Point> findByUserId(Long userId);
 }

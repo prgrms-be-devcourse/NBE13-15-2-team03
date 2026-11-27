@@ -39,7 +39,7 @@ public class UserService {
      *
      * 정보 수정, 비밀번호 변경에서도 똑같이 쓰려고 메서드로 뺐다.
      */
-    private Users findActiveUser(Long userId) {
+    public Users findActiveUser(Long userId) {
         return userRepository.findById(userId)
                 .filter(user -> !user.isDeleted())   // 탈퇴 회원 걸러내기
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
