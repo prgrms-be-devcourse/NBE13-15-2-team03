@@ -1,6 +1,5 @@
 package com.kdt.reservation.point;
 
-
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -12,4 +11,6 @@ public interface PointRepository extends JpaRepository<Point, Long> {
     Optional<Point> findWithLockByUserId(Long userId);
 
     Optional<Point> findByUserId(Long userId);
+
+    boolean existsByUserId(Long userId);
 }

@@ -7,6 +7,9 @@ import com.kdt.reservation.user.UserService;
 import com.kdt.reservation.user.Users;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -115,5 +118,21 @@ public class PointService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.POINT_NOT_FOUND));
 
         return new PointResponse(point.getBalance());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PointHistoryResponse> getMyPointHistory(Long userId, PointType type, Pageable pageable) {
+        this.userService.findActiveUser(userId);
+
+        if (!this.pointRepository.existsByUserId(userId)) {
+            throw new BusinessException(ErrorCode.POINT_NOT_FOUND);
+        }
+
+        // Controller에서 Pageable로 받기 때문에 의도치 않은 sort값이 QueryParam으로 들어올 수 있음
+        // 이를 무시하기 위한 처리
+        Pageable ignoreSort = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        
+        return this.pointHistoryRepository.findMyHistory(userId, type, ignoreSort)
+                .map(PointHistoryResponse::from);
     }
 }
