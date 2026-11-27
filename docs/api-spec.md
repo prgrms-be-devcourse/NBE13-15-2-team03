@@ -1,6 +1,6 @@
 # 숙소 예약 서비스 API 명세
 
-- 작성일: 2026-11-23 (최종 수정 2026-11-24, 확정 ERD와 팀 결정 반영)
+- 작성일: 2026-11-23 (최종 수정 2026-11-26, 확정 ERD와 팀 결정 반영 Refresh 토큰 쿠키 전달 반영)
 - 기준 문서: `docs/erd.md`, `db/01_schema.sql` (테이블 15개: USERS, SOCIAL_USER, ACCOMMODATION, ACCOMMODATION_IMAGE, ROOM, ROOM_IMAGE, FEATURE, ACCOMMODATION_FEATURE, ROOM_FEATURE, RESERVATION, PAYMENT, POINT, POINT_HISTORY, REVIEW, REVIEW_IMAGE)
 - 범위: 엔드포인트 36개 (JSON API 34개, Spring Security가 처리하는 소셜 로그인 경로 2개)
 - 명세 작성: 김진형
@@ -12,7 +12,7 @@
 
 | # | 항목 | 이 문서의 가정 | 관련 절 |
 |---|---|---|---|
-| 2 | 토큰 전달과 만료 | 응답 본문으로 전달. Access 30분, Refresh 14일 | 3.2, 3.3 |
+| 2 | 토큰 전달과 만료 | Access 토큰은 응답 본문(`accessToken`)으로, Refresh 토큰은 `Set-Cookie` 헤더의 HttpOnly 쿠키로 전달한다. 쿠키 이름 `refreshToken`, `HttpOnly`, `SameSite=Strict`, `Path=/api/auth`, `Max-Age`는 Refresh 수명. `Secure`는 배포(https) 환경에서만 켠다. Access 30분, Refresh 14일 | 3.2~3.4 | A |
 | 5 | 소셜 로그인 콜백 응답 | 리다이렉트 없이 JSON 본문으로 토큰 전달 | 4.2 |
 | 6 | 가입 입력 규칙 | 아이디 영문 소문자·숫자 4~20자, 비밀번호 8~64자(영문과 숫자 포함) | 3.1 |
 | 7 | enum 값 | `accommodation.type`은 확정(11/23 팀 합의). `room.grade`, `payment.method`는 ERD에 임시로 표기돼 있다. 값은 1.6에 있다 | 1.6 |
@@ -43,6 +43,7 @@
 | 22 | 숙소·객실 이미지 | 각각 최대 10장. ERD에 순서나 대표 컬럼이 없으므로 id 오름차순 첫 번째 이미지를 대표(`thumbnailUrl`)로 쓴다. 수정은 목록 전체 교체(12.4와 같은 방식) | 6, 7, 8 | B |
 | 23 | 편의시설 필터와 식별자 | 요청과 필터는 `featureId`(숫자)로 받는다. 숙소 목록은 숙소 편의시설로만 거르고, 여러 개를 보내면 모두 가진 숙소만(AND) 포함한다. 객실용 id를 보내면 400 `INVALID_FEATURE`. 수정은 목록 전체 교체 | 6.1, 7, 8 | B |
 | 24 | 예약당 포인트 내역 | 한 예약에 `USE`, `EARN`, `REFUND` 내역은 유형별로 최대 1건이다. 같은 유형을 다시 만들려 하면 500 `POINT_HISTORY_ALREADY_EXISTS` | 9.4, 10.1, 11 | D |
+| 25 | POINT 행 생성 시점 | 회원가입 시 잔액 0인 `POINT` 행을 회원 저장과 같은 트랜잭션에서 만든다. 포인트 사용·적립·환불 때 행이 없으면 500 `POINT_NOT_FOUND` | 3.1, 9.4, 10.1, 11 | D |
 
 ## 1. 공통
 
@@ -272,6 +273,8 @@
 
 비밀번호는 BCrypt 해시로 저장하고 어떤 응답에도 담지 않는다.
 
+가입과 함께 잔액 0인 `POINT` 행을 만든다. 회원 저장과 같은 트랜잭션이라 포인트 생성에 실패하면 가입도 취소된다.
+
 **에러**: 400 `INVALID_INPUT`, 409 `DUPLICATE_LOGIN_ID`, 409 `DUPLICATE_PHONE`
 
 ### 3.2 로그인
@@ -292,7 +295,6 @@
 | `tokenType` | string | 항상 `Bearer` |
 | `accessToken` | string | API 호출에 쓰는 JWT |
 | `accessTokenExpiresIn` | int | Access 토큰 만료까지 남은 초 |
-| `refreshToken` | string | 재발급에 쓰는 토큰 |
 | `user.userId` | long | 사용자 ID |
 | `user.nickname` | string | 닉네임 |
 | `user.role` | enum | `GUEST`, `HOST`, `ADMIN` |
@@ -304,10 +306,14 @@
     "tokenType": "Bearer",
     "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
     "accessTokenExpiresIn": 1800,
-    "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
     "user": { "userId": 7, "nickname": "여행자", "role": "GUEST" }
   }
 }
+```
+**응답 헤더**: Refresh 토큰은 본문이 아니라 쿠키로 전달한다(0-1의 2번).
+
+```
+Set-Cookie: refreshToken=eyJhbGciOiJIUzI1NiJ9...; Path=/api/auth; Max-Age=1209600; HttpOnly; SameSite=Strict
 ```
 
 아이디와 비밀번호 중 어느 쪽이 틀렸는지는 알려주지 않는다.
@@ -320,11 +326,7 @@
 
 Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기존 Refresh 토큰은 그 즉시 폐기한다.
 
-**요청 본문**
-
-| 필드 | 타입 | 필수 |
-|---|---|---|
-| `refreshToken` | string | 필수 |
+**요청**: 본문은 없다. 로그인(또는 직전 재발급) 때 받은 `refreshToken` 쿠키가 브라우저에서 자동으로 전송된다.
 
 **응답 200** `data`: 3.2와 같은 구조에서 `user`를 뺀 것.
 
@@ -334,13 +336,19 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
   "data": {
     "tokenType": "Bearer",
     "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
-    "accessTokenExpiresIn": 1800,
-    "refreshToken": "eyJhbGciOiJIUzI1NiJ9..."
+    "accessTokenExpiresIn": 1800
   }
 }
 ```
 
-**에러**: 400 `INVALID_INPUT`, 401 `INVALID_REFRESH_TOKEN`
+**응답 헤더**: 새 Refresh 토큰을 쿠키로 다시 보낸다. 기존 쿠키를 덮어쓴다.
+
+```
+Set-Cookie: refreshToken=eyJhbGciOiJIUzI1NiJ9...; Path=/api/auth; Max-Age=1209600; HttpOnly; SameSite=Strict
+```
+
+**에러**: 401 `INVALID_REFRESH_TOKEN` (쿠키 없음, 위조·만료, 이미 재발급에 쓴 토큰, 로그아웃한 토큰, 탈퇴한 회원)
+
 
 ### 3.4 로그아웃
 
@@ -348,7 +356,11 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 
 서버에 저장된 그 사용자의 Refresh 토큰을 삭제한다. 요청 본문은 없다. 이미 발급된 Access 토큰은 만료 시각까지 유효하다.
 
-**응답 200**: `data`는 null.
+**응답 200**: `data`는 null. 응답 헤더로 `refreshToken` 쿠키를 지운다.
+
+```
+Set-Cookie: refreshToken=; Path=/api/auth; Max-Age=0; HttpOnly; SameSite=Strict
+```
 
 **에러**: 401 `UNAUTHORIZED`
 
@@ -1237,7 +1249,7 @@ Refresh 토큰으로 새 Access 토큰과 새 Refresh 토큰을 받는다. 기�
 }
 ```
 
-**에러**: 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_ALREADY_CANCELLED`, 409 `CANCEL_PERIOD_EXPIRED`, 500 `POINT_HISTORY_ALREADY_EXISTS`
+**에러**: 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_ALREADY_CANCELLED`, 409 `CANCEL_PERIOD_EXPIRED`, 500 `POINT_HISTORY_ALREADY_EXISTS`, 500 `POINT_NOT_FOUND`
 
 ### 9.5 숙소의 예약 목록
 
@@ -1334,7 +1346,7 @@ PENDING 예약을 결제하고 예약을 확정한다.
 
 `usedPoint`와 `earnedPoint`는 `PAYMENT`에 컬럼이 없어 이 예약의 `POINT_HISTORY`에서 읽는다(가정 15).
 
-**에러**: 400 `INVALID_INPUT`, 400 `INVALID_POINT_AMOUNT`, 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_NOT_PAYABLE`, 409 `INSUFFICIENT_POINT`, 500 `POINT_HISTORY_ALREADY_EXISTS`
+**에러**: 400 `INVALID_INPUT`, 400 `INVALID_POINT_AMOUNT`, 401 `UNAUTHORIZED`, 403 `RESERVATION_ACCESS_DENIED`, 404 `RESERVATION_NOT_FOUND`, 409 `RESERVATION_NOT_PAYABLE`, 409 `INSUFFICIENT_POINT`, 500 `POINT_HISTORY_ALREADY_EXISTS`, 500 `POINT_NOT_FOUND`
 
 ### 10.2 결제 내역 조회
 

@@ -24,4 +24,5 @@ kdt:
     secret: ${JWT_SECRET}
     access-seconds: 1800       # 30분
     refresh-seconds: 1209600   # 14일
+    cookie-secure: false   # 로컬(http)은 false, 배포(https)는 true
   
