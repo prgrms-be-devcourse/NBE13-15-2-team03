@@ -1,4 +1,4 @@
-package com.kdt.reservation.reservation;
+package com.kdt.reservation.reservation.dto;
 
 public record RoomSummary(Long roomId, String name) {
 }
