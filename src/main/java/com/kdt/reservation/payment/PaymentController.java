@@ -1,10 +1,12 @@
 package com.kdt.reservation.payment;
 
 import com.kdt.reservation.common.response.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -15,8 +17,10 @@ public class PaymentController {
     //10.1 결제하여 예약을 확정 POST /api/reservations/{id}/payments
     @PostMapping("/api/reservations/{id}/payments")
     public ApiResponse<PaymentResponse> paymentExecution(
-            @PathVariable("id") Long id,@AuthenticationPrincipal Long userId){
-        return this.paymentService.executePay()
+            @PathVariable("id") Long reservationId,
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody PaymentRequest request){
+        return this.paymentService.executePay(reservationId,userId,request);
     }
 
 }

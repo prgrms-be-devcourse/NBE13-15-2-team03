@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
@@ -31,7 +30,7 @@ public class Payment {
     private PayStatus payStatus;
     @Column(nullable = false)
     private int amount;
-    @CreatedDate
+    //@CreatedDate
     @Column(name = "created_at",nullable = false)
     private LocalDateTime created_at;
     @Column(name = "paid_at")
@@ -39,6 +38,12 @@ public class Payment {
     @Column(name = "cancelled_at")
     private LocalDateTime cancelled_at;
 
-
-
+    public Payment(Reservation reservation, PayMethod payMethod, PayStatus payStatus, int amount, LocalDateTime created_at, LocalDateTime paid_at) {
+        this.reservation = reservation;
+        this.payMethod = payMethod;
+        this.payStatus = payStatus;
+        this.amount = amount;
+        this.created_at = created_at;
+        this.paid_at = paid_at;
+    }
 }
