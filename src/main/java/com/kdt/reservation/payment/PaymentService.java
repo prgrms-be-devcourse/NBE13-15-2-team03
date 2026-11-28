@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -51,6 +52,21 @@ public class PaymentService {
         //청구 이후 영수증 잉크가 찍힌 시각
         LocalDateTime paidAt = LocalDateTime.now();
 
+        //10분이 지나 Reservation 무효화 및 Payment 무효화(기록을 위하여 저장)
+        Long minutes = ChronoUnit.MINUTES.between(createdAt,paidAt);
+        if(minutes>10){
+            reservation.setStatus(Status.FAILED);
+            Payment payment = new Payment(
+                    reservation,
+                    request.method(),
+                    PayStatus.FAILED,
+                    amount,
+                    createdAt,
+                    paidAt);
+            this.paymentRepository.save(payment);
+            throw new BusinessException(ErrorCode.RESERVATION_NOT_PAYABLE);
+        }
+
         //3.payment 생성
         //결제를 PAID로 저장
         Payment payment = new Payment(
@@ -67,11 +83,24 @@ public class PaymentService {
         //4.포인트 생성 5%
         //reservation의 id를 통해 PointHistory를 조회하여 (할인 전 가격 - 포인트)
         //이후 잔여포인트에 생성된 포인트 합산하여 저장후 Point 객체 반환
-        Point totalPoint = this.pointService.earn(reservation);
+        //Point totalPoint = this.pointService.earn(reservation);
+        //소숫점 이하는 버립니다
+        int earnedPoint = amount*5/100;
 
-        PaymentResponse dto = PaymentResponse.from(payment,usePoint,totalPoint.getBalance());
+        PaymentResponse dto = PaymentResponse.from(payment,usePoint,earnedPoint);
         return ApiResponse.created(dto);
     }
+
+//    @Transactional(readOnly = true)
+//    public ApiResponse<PaymentListResponse> getRecentPayment(Long reservationId){
+//
+//        //단건조회를 하는 API
+//        //결제 기록을 최신순 배열로 돌려준다. 페이징 하지 않는다
+//
+//        //로직
+//        //reservationId에 맞는 결제 내역을 가져온다
+//
+//    }
 
     private int amountCalculate(int totalPrice,int usePoint,Reservation reservation){
         //usePoint가 0인경우 포인트 없이 결제를 진행한다
